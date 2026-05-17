@@ -228,7 +228,7 @@ ipcMain.handle('set-console-enabled', (event, enabled) => {
 // Criar janela de login
 function createLoginWindow() {
   const loginWidth = 800;
-  const loginHeight = 700;
+  const loginHeight = 580;
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   
   loginWindow = new BrowserWindow({
@@ -554,6 +554,10 @@ ipcMain.handle('get-credentials', async () => {
 ipcMain.handle('clear-credentials', async () => {
   store.delete('rememberedUser');
   return true;
+});
+
+ipcMain.handle('get-app-version', () => {
+  return packageJson.version;
 });
 
 // Handler para buscar pedido no Supabase
@@ -1287,6 +1291,16 @@ ipcMain.handle('abrir-arquivo', async (event, filePath) => {
 
 app.whenReady().then(async () => {
   store = new Store();
+
+  // Limpa silenciosamente executáveis .old remanescentes de atualizações anteriores
+  try {
+    const oldExePath = process.execPath + '.old';
+    if (fs.existsSync(oldExePath)) {
+      fs.unlinkSync(oldExePath);
+    }
+  } catch (e) {
+    // Falha silenciosa se o arquivo ainda estiver sendo indexado/sincronizado pelo OneDrive
+  }
 
   // Inicializa a verificação e gerenciamento de atualizações automáticas
   const updater = new AppUpdater(packageJson.version, 'RafaelNegrao', 'Companion');

@@ -241,25 +241,46 @@ class AppUpdater {
   applyUpdate(newExePath) {
     const currentExePath = process.execPath;
     const currentDir = path.dirname(currentExePath);
+    const exeName = path.basename(currentExePath);
     const batPath = path.join(app.getPath('temp'), 'update-companion.bat');
 
-    // Script batch otimizado que aguarda o encerramento completo do app,
-    // move o arquivo novo por cima do atual, reinicia o app e limpa os rastros.
+    // Script batch super robusto que resolve problemas com OneDrive e locks de arquivo.
+    // 1. Muda de diretório para a pasta do executável (/d garante mudança de drive).
+    // 2. Tenta matar o processo por nome do executável de forma garantida.
+    // 3. Renomeia o executável original para .old (permitido pelo Windows mesmo bloqueado pelo OneDrive/indexação).
+    // 4. Copia o novo executável da pasta temp para a pasta atual.
+    // 5. Inicia a nova versão do Companion.
+    // 6. Limpa os arquivos temporários e antigos.
     const batContent = `@echo off
 chcp 65001 > nul
 title Atualizando Companion...
-timeout /t 2 /nobreak > nul
+timeout /t 1 /nobreak > nul
 
-:loop
-taskkill /f /im "${path.basename(currentExePath)}" > nul 2>&1
-copy /y "${newExePath}" "${currentExePath}" > nul
+cd /d "${currentDir}"
+
+taskkill /f /im "${exeName}" > nul 2>&1
+del /f /q "${exeName}.old" > nul 2>&1
+
+:loop_rename
+rename "${exeName}" "${exeName}.old" > nul 2>&1
 if errorlevel 1 (
     timeout /t 1 /nobreak > nul
-    goto loop
+    goto loop_rename
 )
 
-start "" "${currentExePath}"
-del "${newExePath}" > nul 2>&1
+:loop_copy
+copy /y "${newExePath}" "${exeName}" > nul
+if errorlevel 1 (
+    timeout /t 1 /nobreak > nul
+    goto loop_copy
+)
+
+start "" "${exeName}"
+del /f /q "${newExePath}" > nul 2>&1
+
+timeout /t 2 /nobreak > nul
+del /f /q "${exeName}.old" > nul 2>&1
+
 (goto) 2>nul & del "%~f0"
 `;
 

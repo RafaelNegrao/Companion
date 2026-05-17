@@ -47,24 +47,30 @@ body {
 }
 
 .login-header {
-  text-align: center;
-  margin-bottom: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 22px;
 }
 
 .logo-icon {
-  color: #667eea;
-  margin-bottom: 20px;
-  background: none;
-  animation: float 6s ease-in-out infinite;
-  filter: drop-shadow(0 4px 12px rgba(102, 126, 234, 0.3));
+  width: 44px;
+  height: 44px;
+  margin-bottom: 0 !important;
+  object-fit: contain;
+  animation: premiumFloat 5s ease-in-out infinite;
 }
 
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
+@keyframes premiumFloat {
+  0% {
+    transform: translateY(0px) scale(1);
   }
   50% {
-    transform: translateY(-10px);
+    transform: translateY(-5px) scale(1.06);
+  }
+  100% {
+    transform: translateY(0px) scale(1);
   }
 }
 
@@ -332,5 +338,27 @@ body {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+.version-info {
+  text-align: center;
+  font-size: 11px;
+  color: #8e8e93;
+  margin-top: 18px;
+  opacity: 0.65;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  -webkit-app-region: no-drag;
+  animation: fadeInVersion 1s ease-out;
+}
+
+@keyframes fadeInVersion {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.65;
   }
 }

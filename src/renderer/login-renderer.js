@@ -10,8 +10,22 @@ const usernameInput = document.getElementById('username');
 const passwordInput = document.getElementById('password');
 const rememberCheckbox = document.getElementById('remember');
 
-// Carregar credenciais salvas ao iniciar (somente email)
+// Carregar credenciais salvas e versão ao iniciar
 window.addEventListener('DOMContentLoaded', async () => {
+  // Carrega e exibe a versão atual do aplicativo
+  try {
+    const version = await ipcRenderer.invoke('get-app-version');
+    const versionTags = document.querySelectorAll('.version-info');
+    versionTags.forEach(tag => {
+      if (tag && version) {
+        tag.textContent = `v${version}`;
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao carregar a versão do aplicativo:', error);
+  }
+
+  // Carregar credenciais salvas (somente email)
   try {
     const savedCredentials = await ipcRenderer.invoke('get-credentials');
     if (savedCredentials && savedCredentials.email) {
