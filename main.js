@@ -4,6 +4,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const Store = require('./store');
 const crud = require('./crud');
+const packageJson = require('./package.json');
+const AppUpdater = require('./updater');
 
 let mainWindow;
 let loginWindow;
@@ -1286,6 +1288,10 @@ ipcMain.handle('abrir-arquivo', async (event, filePath) => {
 app.whenReady().then(() => {
   store = new Store();
   createLoginWindow();
+
+  // Executa a verificação e download de atualizações automáticas em segundo plano ao abrir o app
+  const updater = new AppUpdater(packageJson.version, 'RafaelNegrao', 'Companion');
+  updater.checkForUpdates();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
