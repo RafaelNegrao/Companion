@@ -34,5 +34,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   abrirArquivo: (filePath) => ipcRenderer.invoke('abrir-arquivo', filePath),
   excluirPastaPedido: (data) => ipcRenderer.invoke('excluir-pasta-pedido', data),
   excluirAnexoPedido: (data) => ipcRenderer.invoke('excluir-anexo-pedido', data),
-  getPathForFile: (file) => webUtils?.getPathForFile ? webUtils.getPathForFile(file) : file?.path
+  getPathForFile: (file) => webUtils?.getPathForFile ? webUtils.getPathForFile(file) : file?.path,
+  startUpdateDownload: () => ipcRenderer.send('start-update-download'),
+  cancelUpdate: () => ipcRenderer.send('cancel-update'),
+  onUpdateProgress: (callback) => ipcRenderer.on('update-progress', (event, value) => callback(value)),
+  onUpdateMetadata: (callback) => ipcRenderer.on('update-metadata', (event, metadata) => callback(metadata))
 });

@@ -1285,16 +1285,20 @@ ipcMain.handle('abrir-arquivo', async (event, filePath) => {
   }
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   store = new Store();
-  createLoginWindow();
 
-  // Executa a verificação e download de atualizações automáticas em segundo plano ao abrir o app
+  // Inicializa a verificação e gerenciamento de atualizações automáticas
   const updater = new AppUpdater(packageJson.version, 'RafaelNegrao', 'Companion');
-  updater.checkForUpdates();
+  const temAtualizacao = await updater.checkForUpdates();
+
+  // Se NÃO houver atualização pendente, inicia a tela de login normalmente
+  if (!temAtualizacao) {
+    createLoginWindow();
+  }
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (BrowserWindow.getAllWindows().length === 0 && !temAtualizacao) {
       createLoginWindow();
     }
   });

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atualização Disponível</title>
+  <link rel="stylesheet" href="update-styles.css">
+  <script src="update-renderer.js" defer></script>
+</head>
+<body>
+  <div class="update-container" id="updateContainer">
+    <!-- Header -->
+    <div class="update-header">
+      <div class="update-icon-wrapper">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </div>
+      <div class="update-title-wrapper">
+        <span class="update-title">Atualização Disponível</span>
+        <span class="update-subtitle" id="versionText">NOVA VERSÃO DISPONÍVEL</span>
+      </div>
+    </div>
+
+    <!-- Content Area (Message / Progress) -->
+    <div class="update-content" id="updateContent">
+      <div class="update-message" id="messageText">
+        Uma nova versão do Companion foi encontrada no GitHub. Gostaria de baixar e atualizar automaticamente agora?
+      </div>
+      
+      <!-- Progress Bar -->
+      <div class="progress-container" id="progressContainer">
+        <div class="progress-header">
+          <span class="progress-status" id="progressStatus">Baixando atualização...</span>
+          <span class="progress-percent" id="progressPercent">0%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="update-actions" id="actionButtons">
+      <button class="btn btn-cancel" id="btnCancel">Cancelar</button>
+      <button class="btn btn-update" id="btnUpdate">Atualizar</button>
+    </div>
+  </div>
+</body>
+</html>
