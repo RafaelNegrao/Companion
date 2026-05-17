@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Companion</title>
+  <link rel="stylesheet" href="login-styles.css">
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-box">
+      <div class="login-header">
+        <svg class="logo-icon" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        <h1>Companion</h1>
+        <p>Faça login para continuar</p>
+      </div>
+      
+      <form id="login-form" class="login-form">
+        <div class="form-group">
+          <label for="username">Email</label>
+          <div class="input-wrapper">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+            <input type="email" id="username" name="username" placeholder="Digite seu email" required autofocus>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="password">Senha</label>
+          <div class="input-wrapper">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            <input type="password" id="password" name="password" placeholder="Digite sua senha" required>
+          </div>
+        </div>
+        
+        <div class="form-group remember-me">
+          <label class="checkbox-label">
+            <input type="checkbox" id="remember" name="remember">
+            <span>Lembrar-me</span>
+          </label>
+        </div>
+        
+        <div id="error-message" class="error-message"></div>
+        
+        <button type="submit" class="login-button">
+          <span>Entrar</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </button>
+      </form>
+      
+      <div class="login-footer">
+        <a href="#" class="forgot-password">Esqueceu a senha?</a>
+        <span class="separator">•</span>
+        <a href="#" id="show-register" class="register-link">Criar conta</a>
+      </div>
+    </div>
+
+    <!-- Formulário de Cadastro -->
+    <div class="login-box register-box hidden">
+      <div class="login-header">
+        <svg class="logo-icon" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="8.5" cy="7" r="4"/>
+          <polyline points="17 11 19 13 23 9"/>
+        </svg>
+        <h1>Criar Conta</h1>
+        <p>Preencha os dados para se cadastrar</p>
+      </div>
+      
+      <form id="register-form" class="login-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="reg-name">Nome Completo</label>
+            <div class="input-wrapper">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              <input type="text" id="reg-name" name="name" placeholder="Nome completo" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="reg-email">Email</label>
+            <div class="input-wrapper">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+              <input type="email" id="reg-email" name="email" placeholder="Seu email" required>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="reg-password">Senha</label>
+            <div class="input-wrapper">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <input type="password" id="reg-password" name="password" placeholder="Min. 6 caracteres" required minlength="6">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="reg-confirm-password">Confirmar</label>
+            <div class="input-wrapper">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <input type="password" id="reg-confirm-password" name="confirm-password" placeholder="Repita a senha" required>
+            </div>
+          </div>
+        </div>
+
+        <div id="register-error-message" class="error-message"></div>
+        <div id="register-success-message" class="success-message"></div>
+        
+        <button type="submit" class="login-button">
+          <span>Cadastrar</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </button>
+      </form>
+      
+      <div class="login-footer">
+        <a href="#" id="show-login" class="register-link">Já tem conta? Faça login</a>
+      </div>
+    </div>
+  </div>
+  
+  <script src="login-renderer.js"></script>
+</body>
+</html>
