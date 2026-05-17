@@ -4,7 +4,7 @@ const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
 function carregarEnvLocal() {
-  const envPath = path.join(__dirname, '.env');
+  const envPath = path.join(__dirname, '../../.env');
   if (!fs.existsSync(envPath)) return;
 
   const conteudo = fs.readFileSync(envPath, 'utf8');

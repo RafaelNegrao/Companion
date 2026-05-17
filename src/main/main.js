@@ -4,7 +4,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const Store = require('./store');
 const crud = require('./crud');
-const packageJson = require('./package.json');
+const packageJson = require('../../package.json');
 const AppUpdater = require('./updater');
 
 let mainWindow;
@@ -129,14 +129,14 @@ function createWindow() {
     resizable: false,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, '../preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       devTools: true
     }
   });
 
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
   mainWindow.setVisibleOnAllWorkspaces(true);
   
@@ -247,7 +247,7 @@ function createLoginWindow() {
     }
   });
 
-  loginWindow.loadFile('login.html');
+  loginWindow.loadFile(path.join(__dirname, '../renderer/login.html'));
   
   // Mostra janela diretamente
   loginWindow.once('ready-to-show', () => {
@@ -279,13 +279,13 @@ function createObsWindow() {
     modal: false,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, '../preload.js'),
       contextIsolation: true,
       nodeIntegration: false
     }
   });
 
-  obsWindow.loadFile('observacoes.html');
+  obsWindow.loadFile(path.join(__dirname, '../renderer/observacoes.html'));
   
   // Mostra janela diretamente
   obsWindow.once('ready-to-show', () => {

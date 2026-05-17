@@ -2,7 +2,7 @@
   "name": "companion-app",
   "version": "1.0.0",
   "description": "App lateral que abre ao passar o mouse",
-  "main": "main.js",
+  "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
