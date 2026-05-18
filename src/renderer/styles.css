@@ -3035,15 +3035,50 @@ body.expanded #main-content {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-#section-pessoais, #section-empresa, #section-docs, #section-comentarios {
+#section-dados-pedido-campos, #section-docs {
   background: rgba(55, 55, 61, 0.5) !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-#section-pessoais .doc-section-title-left::before { background: #0a84ff !important; box-shadow: 0 0 10px rgba(10, 132, 255, 0.2); }
-#section-empresa .doc-section-title-left::before { background: #34c759 !important; box-shadow: 0 0 10px rgba(52, 199, 89, 0.2); }
+#section-dados-pedido-campos .doc-section-title-left::before { background: #0a84ff !important; box-shadow: 0 0 10px rgba(10, 132, 255, 0.2); }
 #section-docs .doc-section-title-left::before { background: #ff9500 !important; box-shadow: 0 0 10px rgba(255, 149, 0, 0.2); }
-#section-comentarios .doc-section-title-left::before { background: #af52de !important; box-shadow: 0 0 10px rgba(175, 82, 222, 0.2); }
+
+/* Estilos de Subgrupos com Indicadores */
+.campos-grupo-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.campos-grupo-title::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+#grupo-pessoais .campos-grupo-title::before {
+  background: #0a84ff;
+  box-shadow: 0 0 8px rgba(10, 132, 255, 0.4);
+}
+
+#section-empresa .campos-grupo-title::before {
+  background: #34c759;
+  box-shadow: 0 0 8px rgba(52, 199, 89, 0.4);
+}
+
+#grupo-comentarios .campos-grupo-title::before {
+  background: #af52de;
+  box-shadow: 0 0 8px rgba(175, 82, 222, 0.4);
+}
+
 
 .doc-section-title {
   color: #ffffff !important;

@@ -223,236 +223,224 @@
         <!-- Área Scrollable de Dados -->
         <div class="scrollable-area" id="form-scrollable-area">
           
-          <div class="doc-sections-row" style="display: grid; grid-template-columns: 1.8fr 1fr; gap: 10px; align-items: stretch;">
-            <!-- Seção: Dados Pessoais -->
-            <div class="doc-section" id="section-pessoais" style="margin-bottom: 0;">
+          <!-- Único Container para todos os campos de texto do pedido -->
+          <div class="doc-section" id="section-dados-pedido-campos">
             <div class="doc-section-title">
-              <div class="doc-section-title-left">Dados Pessoais</div>
+              <div class="doc-section-title-left">Dados do Pedido</div>
               <span class="section-arrow">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </span>
             </div>
+            
             <div class="doc-section-content">
-              <div class="form-grid-2">
-                <div class="form-field">
-                  <label>NOME</label>
-                  <input type="text" class="input-dark" id="pessoa-nome">
+              
+              <!-- Sub-seção: Dados Pessoais -->
+              <div class="campos-grupo" id="grupo-pessoais">
+                <h3 class="campos-grupo-title">Dados Pessoais</h3>
+                
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label>NOME</label>
+                    <input type="text" class="input-dark" id="pessoa-nome">
+                  </div>
+                  <div class="form-field">
+                    <label>NASCIMENTO</label>
+                    <input type="date" class="input-dark" id="pessoa-nascimento">
+                  </div>
                 </div>
-                <div class="form-field">
-                  <label>NASCIMENTO</label>
-                  <input type="date" class="input-dark" id="pessoa-nascimento">
-                </div>
-              </div>
 
-              <div class="form-grid-2">
-                <div class="form-field">
-                  <label>E-MAIL</label>
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label>E-MAIL</label>
+                    <div class="input-icon">
+                      <input type="email" class="input-dark" id="pessoa-email">
+                      <span class="icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                          <polyline points="22,6 12,13 2,6"/>
+                        </svg>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="form-field">
+                    <label>TELEFONE</label>
+                    <div class="input-icon">
+                      <input type="tel" class="input-dark" id="pessoa-telefone">
+                      <span class="icon red">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                        </svg>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-field full">
+                  <label>NOME DA MÃE</label>
                   <div class="input-icon">
-                    <input type="email" class="input-dark" id="pessoa-email">
+                    <input type="text" class="input-dark" id="pessoa-mae">
                     <span class="icon">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                        <polyline points="22,6 12,13 2,6"/>
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
                       </svg>
                     </span>
                   </div>
                 </div>
-                <div class="form-field">
-                  <label>TELEFONE</label>
-                  <div class="input-icon">
-                    <input type="tel" class="input-dark" id="pessoa-telefone">
-                    <span class="icon red">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                      </svg>
-                    </span>
+
+                <div class="form-grid-3" style="margin-top: 15px;">
+                  <div class="form-field">
+                    <label>CPF</label>
+                    <div class="input-icon">
+                      <input type="text" class="input-dark" id="pessoa-cpf">
+                      <span class="icon" id="cpf-loading-icon" style="display: none;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <circle cx="12" cy="12" r="10"/>
+                          <path d="M12 6v6l4 2"/>
+                        </svg>
+                      </span>
+                      <span class="icon" id="cpf-icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="form-field">
+                    <label>RG</label>
+                    <div class="input-icon">
+                      <input type="text" class="input-dark" id="pessoa-rg">
+                      <span class="icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="form-field">
+                    <label>ÓRGÃO RG</label>
+                    <input type="text" class="input-dark" id="pessoa-orgao-rg">
+                  </div>
+                </div>
+
+                <div class="form-grid-2" style="margin-top: 15px;">
+                  <div class="form-field">
+                    <label>NÚMERO CNH</label>
+                    <div class="input-icon">
+                      <input type="text" class="input-dark" id="pessoa-cnh">
+                      <span class="icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                          <line x1="1" y1="10" x2="23" y2="10"/>
+                        </svg>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="form-field">
+                    <label>CÓD SEGURANÇA CNH</label>
+                    <input type="text" class="input-dark" id="pessoa-cnh-seguranca">
+                  </div>
+                </div>
+
+                <div class="form-grid-2" style="margin-top: 15px;">
+                  <div class="form-field">
+                    <label>FUNCIONAL</label>
+                    <input type="text" class="input-dark" id="pessoa-funcional">
+                  </div>
+                  <div class="form-field">
+                    <label>PIS/CEI</label>
+                    <div class="input-icon">
+                      <input type="text" class="input-dark" id="pessoa-pis">
+                      <span class="icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div class="form-field full">
-                <label>NOME DA MÃE</label>
-                <div class="input-icon">
-                  <input type="text" class="input-dark" id="pessoa-mae">
-                  <span class="icon">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                      <circle cx="12" cy="7" r="4"/>
-                    </svg>
-                  </span>
+              <!-- Sub-seção: Dados Empresa (ocultado/mostrado dinamicamente!) -->
+              <div class="campos-grupo" id="section-empresa" style="margin-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 20px;">
+                <h3 class="campos-grupo-title">Dados Empresa</h3>
+                <!-- Aviso de Empresa Inapta -->
+                <div id="empresa-inapta-warning" style="display: none; background: #ff3b30; color: white; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-weight: 600; text-align: center;">
+                  ATENÇÃO: Esta empresa está INAPTA perante a Receita Federal!
                 </div>
-              </div>
 
-              <div class="form-grid-3" style="margin-top: 15px;">
-                <div class="form-field">
-                  <label>CPF</label>
-                  <div class="input-icon">
-                    <input type="text" class="input-dark" id="pessoa-cpf">
-                    <span class="icon" id="cpf-loading-icon" style="display: none;">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="M12 6v6l4 2"/>
-                      </svg>
-                    </span>
-                    <span class="icon" id="cpf-icon">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                      </svg>
-                    </span>
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label>CNPJ</label>
+                    <div class="input-icon">
+                      <input type="text" class="input-dark" id="empresa-cnpj">
+                      <span class="icon" id="cnpj-loading-icon" style="display: none;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <circle cx="12" cy="12" r="10"/>
+                          <path d="M12 6v6l4 2"/>
+                        </svg>
+                      </span>
+                      <span class="icon" id="cnpj-icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="form-field">
+                    <label>SITUAÇÃO CADASTRAL</label>
+                    <div class="input-icon">
+                      <input type="text" class="input-dark" id="empresa-situacao" readonly>
+                      <span class="icon" id="situacao-icon" style="display: none;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="3">
+                          <circle cx="12" cy="12" r="10"/>
+                          <path d="M9 12l2 2 4-4"/>
+                        </svg>
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <div class="form-field">
-                  <label>RG</label>
-                  <div class="input-icon">
-                    <input type="text" class="input-dark" id="pessoa-rg">
-                    <span class="icon">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                      </svg>
-                    </span>
+
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label>RAZÃO SOCIAL</label>
+                    <input type="text" class="input-dark" id="empresa-razao-social">
+                  </div>
+                  <div class="form-field">
+                    <label>LOGRADOURO</label>
+                    <input type="text" class="input-dark" id="empresa-logradouro">
                   </div>
                 </div>
-                <div class="form-field">
-                  <label>ÓRGÃO RG</label>
-                  <input type="text" class="input-dark" id="pessoa-orgao-rg">
-                </div>
-              </div>
 
-              <div class="form-grid-2" style="margin-top: 15px;">
-                <div class="form-field">
-                  <label>NÚMERO CNH</label>
-                  <div class="input-icon">
-                    <input type="text" class="input-dark" id="pessoa-cnh">
-                    <span class="icon">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
-                        <line x1="1" y1="10" x2="23" y2="10"/>
-                      </svg>
-                    </span>
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label>CEP</label>
+                    <input type="text" class="input-dark" id="empresa-cep">
                   </div>
-                </div>
-                <div class="form-field">
-                  <label>CÓD SEGURANÇA CNH</label>
-                  <input type="text" class="input-dark" id="pessoa-cnh-seguranca">
-                </div>
-              </div>
-
-              <div class="form-grid-2" style="margin-top: 15px;">
-                <div class="form-field">
-                  <label>FUNCIONAL</label>
-                  <input type="text" class="input-dark" id="pessoa-funcional">
-                </div>
-                <div class="form-field">
-                  <label>PIS/CEI</label>
-                  <div class="input-icon">
-                    <input type="text" class="input-dark" id="pessoa-pis">
-                    <span class="icon">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                      </svg>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            </div>
-
-            <!-- Seção: Comentários -->
-            <div class="doc-section" id="section-comentarios" style="margin-bottom: 0; display: flex; flex-direction: column;">
-              <div class="doc-section-title">
-                <div class="doc-section-title-left">Comentários</div>
-                <span class="section-arrow">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
-                </span>
-              </div>
-              <div class="doc-section-content" style="flex: 1; display: flex; flex-direction: column;">
-                <div class="form-field full" style="flex: 1; display: flex;">
-                  <textarea class="input-dark" id="pedido-comentarios" placeholder="Adicione observações importantes sobre este pedido..." style="flex: 1; min-height: 100px; resize: none;"></textarea>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Seção: Dados Empresa -->
-          <div class="doc-section" id="section-empresa">
-            <div class="doc-section-title">
-              <div class="doc-section-title-left">Dados Empresa</div>
-              <span class="section-arrow">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </span>
-            </div>
-            <div class="doc-section-content">
-              <!-- Aviso de Empresa Inapta -->
-              <div id="empresa-inapta-warning" style="display: none; background: #ff3b30; color: white; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-weight: 600; text-align: center;">
-                ATENÇÃO: Esta empresa está INAPTA perante a Receita Federal!
-              </div>
-
-              <div class="form-grid-2">
-                <div class="form-field">
-                  <label>CNPJ</label>
-                  <div class="input-icon">
-                    <input type="text" class="input-dark" id="empresa-cnpj">
-                    <span class="icon" id="cnpj-loading-icon" style="display: none;">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="M12 6v6l4 2"/>
-                      </svg>
-                    </span>
-                    <span class="icon" id="cnpj-icon">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                      </svg>
-                    </span>
-                  </div>
-                </div>
-                <div class="form-field">
-                  <label>SITUAÇÃO CADASTRAL</label>
-                  <div class="input-icon">
-                    <input type="text" class="input-dark" id="empresa-situacao" readonly>
-                    <span class="icon" id="situacao-icon" style="display: none;">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="3">
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="M9 12l2 2 4-4"/>
-                      </svg>
-                    </span>
+                  <div class="form-field">
+                    <label>MUNICÍPIO / UF</label>
+                    <div class="form-grid-2" style="margin-bottom: 0;">
+                      <input type="text" class="input-dark" id="empresa-municipio" placeholder="Município">
+                      <input type="text" class="input-dark" id="empresa-uf" placeholder="UF">
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div class="form-grid-2">
-                <div class="form-field">
-                  <label>RAZÃO SOCIAL</label>
-                  <input type="text" class="input-dark" id="empresa-razao-social">
-                </div>
-                <div class="form-field">
-                  <label>LOGRADOURO</label>
-                  <input type="text" class="input-dark" id="empresa-logradouro">
+              <!-- Sub-seção: Comentários -->
+              <div class="campos-grupo" id="grupo-comentarios" style="margin-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 20px;">
+                <h3 class="campos-grupo-title">Comentários</h3>
+                <div class="form-field full" style="margin-top: 10px;">
+                  <textarea class="input-dark" id="pedido-comentarios" placeholder="Adicione observações importantes sobre este pedido..." style="width: 100%; min-height: 100px; resize: none;"></textarea>
                 </div>
               </div>
 
-              <div class="form-grid-2">
-                <div class="form-field">
-                  <label>CEP</label>
-                  <input type="text" class="input-dark" id="empresa-cep">
-                </div>
-                <div class="form-field">
-                  <label>MUNICÍPIO / UF</label>
-                  <div class="form-grid-2" style="margin-bottom: 0;">
-                    <input type="text" class="input-dark" id="empresa-municipio" placeholder="Município">
-                    <input type="text" class="input-dark" id="empresa-uf" placeholder="UF">
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 
