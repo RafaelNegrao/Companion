@@ -1,7 +1,7 @@
 /* Custom Reset and Variables */
 :root {
-  --ui-bg: rgba(30, 30, 36, 0.96);
-  --ui-surface: rgba(45, 45, 52, 0.9);
+  --ui-bg: #1e1e24;
+  --ui-surface: #2d2d34;
   --ui-border: rgba(255, 255, 255, 0.08);
   --ui-primary: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
   --ui-primary-glow: rgba(139, 92, 246, 0.35);
@@ -33,16 +33,13 @@ body {
   width: 400px;
   height: 230px;
   background: var(--ui-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--ui-border);
   border-radius: 20px;
   padding: 24px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.5),
-              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: none;
   animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -75,18 +72,15 @@ body {
   align-items: center;
   color: #a78bfa;
   font-size: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   animation: pulseIcon 2.5s infinite ease-in-out;
 }
 
 @keyframes pulseIcon {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   }
   50% {
     transform: scale(1.04);
-    box-shadow: 0 4px 18px rgba(139, 92, 246, 0.25);
   }
 }
 
@@ -164,13 +158,11 @@ body {
 .btn-update {
   background: var(--ui-primary);
   color: #ffffff;
-  box-shadow: 0 4px 14px var(--ui-primary-glow);
 }
 
 .btn-update:hover {
   filter: brightness(1.1);
   transform: translateY(-1.5px);
-  box-shadow: 0 6px 18px rgba(139, 92, 246, 0.45);
 }
 
 .btn-update:active {
@@ -214,8 +206,55 @@ body {
 .progress-bar {
   width: 0%;
   height: 100%;
-  background: var(--ui-primary);
+  background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #3b82f6 100%);
+  background-size: 200% 100%;
   border-radius: 3px;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.7);
-  transition: width 0.15s ease-out;
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: progressStream 1.8s linear infinite;
+}
+
+@keyframes progressStream {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* Animated Download Icon */
+.downloading .download-arrow {
+  animation: downloadArrowAnim 1.5s infinite cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.downloading .download-tray {
+  animation: downloadTrayAnim 1.5s infinite ease-in-out;
+}
+
+@keyframes downloadArrowAnim {
+  0% {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  30% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+}
+
+@keyframes downloadTrayAnim {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(1px);
+  }
 }

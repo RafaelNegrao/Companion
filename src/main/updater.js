@@ -1,12 +1,12 @@
-const { app, dialog, BrowserWindow, ipcMain } = require('electron');
+﻿const { app, dialog, BrowserWindow, ipcMain } = require('electron');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
 /**
- * AppUpdater - Gerencia a verificação de atualizações automáticas via GitHub Releases.
- * Segue os princípios de SOLID e encapsulamento, com foco em simplicidade e robustez para Windows.
+ * AppUpdater - Gerencia a verificaÃ§Ã£o de atualizaÃ§Ãµes automÃ¡ticas via GitHub Releases.
+ * Segue os princÃ­pios de SOLID e encapsulamento, com foco em simplicidade e robustez para Windows.
  */
 class AppUpdater {
   constructor(currentVersion, repoOwner, repoName) {
@@ -19,9 +19,63 @@ class AppUpdater {
   }
 
   /**
-   * Compara duas versões semânticas para determinar se a última é mais recente que a atual.
+   * ObtÃ©m os caminhos corretos do executÃ¡vel, suportando executÃ¡veis portÃ¡teis do Electron.
+   * @returns {{currentExePath: string, currentDir: string, exeName: string}}
+   */
+  getPaths() {
+    const tempDir = String(process.env.TEMP || process.env.TMP || '').toLowerCase();
+    const isLikelyTempPath = (targetPath) => {
+      const p = String(targetPath || '').toLowerCase();
+      if (!p) return false;
+      if (tempDir && p.startsWith(tempDir)) return true;
+      return p.includes('\\appdata\\local\\temp\\');
+    };
+
+    const envPortableFile = process.env.PORTABLE_EXECUTABLE_FILE;
+    const envPortablePath = process.env.PORTABLE_EXECUTABLE_PATH;
+    const envPortableDir = process.env.PORTABLE_EXECUTABLE_DIR;
+    const execPath = process.execPath;
+    const argv0 = process.argv && process.argv.length > 0 ? process.argv[0] : '';
+    const exeBaseName = path.basename(argv0 || execPath || 'Companion.exe');
+    const portableDirCandidate = envPortableDir ? path.join(envPortableDir, exeBaseName) : '';
+    const cwdCandidate = path.join(process.cwd(), exeBaseName);
+    const candidates = [envPortableFile, envPortablePath, portableDirCandidate, cwdCandidate, argv0, execPath].filter(Boolean);
+
+    const nonTempExistingExe = candidates.find((candidate) => {
+      const c = String(candidate);
+      return c.toLowerCase().endsWith('.exe') && fs.existsSync(c) && !isLikelyTempPath(c);
+    });
+
+    const anyExistingExe = candidates.find((candidate) => {
+      const c = String(candidate);
+      return c.toLowerCase().endsWith('.exe') && fs.existsSync(c);
+    });
+
+    const currentExePath = nonTempExistingExe || anyExistingExe || envPortableFile || envPortablePath || portableDirCandidate || cwdCandidate || argv0 || execPath;
+    const currentDir = path.dirname(currentExePath);
+    const exeName = path.basename(currentExePath);
+    return { currentExePath, currentDir, exeName };
+  }
+
+  /**
+   * Resolve redirecionamentos HTTP (absolutos ou relativos) a partir da URL original.
+   * @param {string|undefined} location
+   * @param {string} baseUrl
+   * @returns {string|null}
+   */
+  resolveRedirectUrl(location, baseUrl) {
+    if (!location) return null;
+    try {
+      return new URL(location, baseUrl).toString();
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Compara duas versÃµes semÃ¢nticas para determinar se a Ãºltima Ã© mais recente que a atual.
    * @param {string} latest - Tag de versão mais recente do GitHub (ex: "v1.1.0" ou "1.1.0").
-   * @param {string} current - Versão instalada atualmente (ex: "1.0.0").
+   * @param {string} current - VersÃ£o instalada atualmente (ex: "1.0.0").
    * @returns {boolean}
    */
   isNewerVersion(latest, current) {
@@ -35,7 +89,7 @@ class AppUpdater {
   }
 
   /**
-   * Faz requisições HTTPS e segue redirecionamentos retornando dados em JSON.
+   * Faz requisiÃ§Ãµes HTTPS e segue redirecionamentos retornando dados em JSON.
    * @param {string} url - URL para consulta.
    * @returns {Promise<any>}
    */
@@ -47,10 +101,16 @@ class AppUpdater {
       }
       const options = { headers };
       https.get(url, options, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
-          return this.fetchJson(res.headers.location).then(resolve).catch(reject);
+        if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
+          const redirectUrl = this.resolveRedirectUrl(res.headers.location, url);
+          if (!redirectUrl) {
+            return reject(new Error('Redirecionamento sem header Location vÃƒÂ¡lido.'));
+          }
+          res.resume();
+          return this.fetchJson(redirectUrl).then(resolve).catch(reject);
         }
         if (res.statusCode !== 200) {
+          res.resume();
           return reject(new Error(`Erro HTTP: ${res.statusCode}`));
         }
         let data = '';
@@ -68,7 +128,7 @@ class AppUpdater {
 
   /**
    * Ponto de entrada que roda silenciosamente ao iniciar o aplicativo.
-   * @returns {Promise<boolean>} Retorna true se houver uma nova versão e a janela de update foi aberta.
+   * @returns {Promise<boolean>} Retorna true se houver uma nova versÃ£o e a janela de update foi aberta.
    */
   async checkForUpdates() {
     try {
@@ -83,8 +143,17 @@ class AppUpdater {
         return false;
       }
 
-      // Procura o asset executável do Windows (.exe)
-      this.exeAsset = release.assets.find(asset => asset.name.endsWith('.exe'));
+      // Procura o asset executÃ¡vel do Windows (.exe)
+      const assets = Array.isArray(release.assets) ? release.assets : [];
+      const { exeName } = this.getPaths();
+      const normalizedExeName = String(exeName || '').toLowerCase();
+
+      this.exeAsset = assets.find(asset => String(asset.name || '').toLowerCase() === normalizedExeName)
+        || assets.find(asset => {
+          const name = String(asset.name || '').toLowerCase();
+          return name.endsWith('.exe') && !name.includes('setup');
+        })
+        || assets.find(asset => String(asset.name || '').toLowerCase().endsWith('.exe'));
       if (!this.exeAsset) {
         console.warn('[Updater] Nenhum arquivo .exe encontrado no release do GitHub.');
         return false;
@@ -93,7 +162,7 @@ class AppUpdater {
       // Inicializa os listeners de IPC para a janela customizada
       this.setupIpcListeners();
 
-      // Abre a janela customizada e frameless de atualização
+      // Abre a janela customizada e frameless de atualizaÃ§Ã£o
       this.createUpdateWindow();
 
       return true;
@@ -105,14 +174,15 @@ class AppUpdater {
   }
 
   /**
-   * Cria a janela de atualização com estilo premium, frameless e transparente.
+   * Cria a janela de atualizaÃ§Ã£o com estilo premium, frameless e transparente.
    */
   createUpdateWindow() {
     this.updateWindow = new BrowserWindow({
-      width: 400,
-      height: 230,
+      width: 420,
+      height: 250,
       frame: false,
       transparent: true,
+      backgroundColor: '#00000000', // Previne o bug de pixels pretos nas bordas no Windows DWM
       resizable: false,
       alwaysOnTop: true,
       show: false,
@@ -127,7 +197,7 @@ class AppUpdater {
 
     this.updateWindow.once('ready-to-show', () => {
       this.updateWindow.show();
-      // Envia informações do release para popular a janela
+      // Envia informaÃ§Ãµes do release para popular a janela
       this.updateWindow.webContents.send('update-metadata', {
         version: this.latestVersion
       });
@@ -135,50 +205,56 @@ class AppUpdater {
   }
 
   /**
-   * Configura os listeners do processo principal para receber ações da janela customizada.
+   * Configura os listeners do processo principal para receber aÃ§Ãµes da janela customizada.
    */
   setupIpcListeners() {
-    // Evita registros duplicados de listeners se a função for chamada mais de uma vez
+    // Evita registros duplicados de listeners se a funÃ§Ã£o for chamada mais de uma vez
     ipcMain.removeAllListeners('start-update-download');
     ipcMain.removeAllListeners('cancel-update');
 
     ipcMain.on('start-update-download', async () => {
       try {
-        const tempExePath = path.join(app.getPath('temp'), `Companion-New-${this.latestVersion}.exe`);
+        const { currentDir, exeName } = this.getPaths();
+        const versionSuffix = String(this.latestVersion || 'latest')
+          .trim()
+          .replace(/^v/i, '')
+          .replace(/[\\/:*?"<>|]/g, '_')
+          .replace(/\s+/g, '_');
+        const appBaseName = String(this.repoName || path.parse(exeName).name || 'Companion')
+          .trim()
+          .replace(/[\\/:*?"<>|]/g, '_')
+          .replace(/\s+/g, '-');
+        const downloadFileName = `${appBaseName}-${versionSuffix}.exe`;
+        const downloadDestPath = path.join(currentDir, downloadFileName);
+
+        try {
+          fs.unlinkSync(downloadDestPath);
+        } catch {
+          // Ignora se o arquivo temporÃƒÂ¡rio anterior nÃƒÂ£o existir.
+        }
         
-        // Baixa a atualização informando o progresso para a janela
-        await this.downloadFile(this.exeAsset.browser_download_url, tempExePath, (progress) => {
+        await this.downloadFile(this.exeAsset.browser_download_url, downloadDestPath, (progress) => {
           if (this.updateWindow && !this.updateWindow.isDestroyed()) {
             this.updateWindow.webContents.send('update-progress', progress);
           }
         });
 
-        // Impede a substituição se estiver em ambiente de desenvolvimento (npm start)
-        if (!app.isPackaged) {
-          dialog.showMessageBox({
-            type: 'warning',
-            title: 'Modo de Desenvolvimento',
-            message: 'Atualização baixada com sucesso!',
-            detail: `Como o app está rodando em modo dev, a substituição foi pulada.\nArquivo salvo em: ${tempExePath}`
-          }).then(() => app.quit());
-          return;
-        }
-
-        // Aplica a substituição automática do executável principal
-        this.applyUpdate(tempExePath);
+        // Etapa 2: remove o executavel antigo e inicia o novo (com versao no nome).
+        this.applyUpdate(downloadDestPath);
+        return;
 
       } catch (error) {
         console.error('[Updater] Falha ao efetuar download do update:', error.message);
         dialog.showErrorBox(
-          'Falha na Atualização',
-          `Não foi possível baixar a nova versão: ${error.message}\nO sistema será encerrado.`
+          'Falha na AtualizaÃ§Ã£o',
+          `NÃ£o foi possÃ­vel baixar a nova versÃ£o: ${error.message}\nO sistema serÃ¡ encerrado.`
         );
         app.quit();
       }
     });
 
     ipcMain.on('cancel-update', () => {
-      console.log('[Updater] O usuário cancelou a atualização. Encerrando sistema...');
+      console.log('[Updater] O usuÃ¡rio cancelou a atualizaÃ§Ã£o. Encerrando sistema...');
       app.quit();
     });
   }
@@ -192,24 +268,56 @@ class AppUpdater {
    */
   downloadFile(url, destPath, progressCallback) {
     return new Promise((resolve, reject) => {
+      const tempPath = `${destPath}.download`;
       const headers = { 'User-Agent': 'Companion-App-Updater' };
       if (process.env.GITHUB_TOKEN && url.includes('api.github.com')) {
         headers['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
       }
       const options = { headers };
 
+      fs.mkdirSync(path.dirname(destPath), { recursive: true });
+      try {
+        fs.unlinkSync(tempPath);
+      } catch {
+        // Ignora se o temporÃƒÂ¡rio nÃƒÂ£o existir.
+      }
+
       https.get(url, options, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
-          return this.downloadFile(res.headers.location, destPath, progressCallback).then(resolve).catch(reject);
+        if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
+          const redirectUrl = this.resolveRedirectUrl(res.headers.location, url);
+          if (!redirectUrl) {
+            return reject(new Error('Redirecionamento sem header Location válido.'));
+          }
+          res.resume();
+          return this.downloadFile(redirectUrl, destPath, progressCallback).then(resolve).catch(reject);
         }
         if (res.statusCode !== 200) {
+          res.resume();
           return reject(new Error(`Erro HTTP no download: ${res.statusCode}`));
         }
 
         const totalBytes = parseInt(res.headers['content-length'], 10) || 0;
         let downloadedBytes = 0;
+        let settled = false;
 
-        const fileStream = fs.createWriteStream(destPath);
+        const fileStream = fs.createWriteStream(tempPath);
+        const fail = (err) => {
+          if (settled) return;
+          settled = true;
+          fileStream.destroy();
+          fs.unlink(tempPath, () => {});
+          reject(err);
+        };
+        const succeed = () => {
+          if (settled) return;
+          settled = true;
+          try {
+            fs.renameSync(tempPath, destPath);
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        };
         
         res.on('data', (chunk) => {
           downloadedBytes += chunk.length;
@@ -219,78 +327,72 @@ class AppUpdater {
           }
         });
 
+        res.on('aborted', () => fail(new Error('Download interrompido antes da conclusão.')));
+        res.on('error', fail);
         res.pipe(fileStream);
         
         fileStream.on('finish', () => {
-          fileStream.close();
-          resolve();
+          fileStream.close(() => {
+            if (totalBytes > 0 && downloadedBytes !== totalBytes) {
+              return fail(new Error(`Download incompleto: ${downloadedBytes}/${totalBytes} bytes.`));
+            }
+            succeed();
+          });
         });
         
-        fileStream.on('error', (err) => {
-          fs.unlink(destPath, () => {});
-          reject(err);
-        });
+        fileStream.on('error', fail);
       }).on('error', reject);
     });
   }
 
   /**
-   * Gera o arquivo .bat de substituição, executa-o de forma desacoplada e fecha a aplicação atual.
-   * @param {string} newExePath - Caminho temporário do novo executável baixado.
+   * Fecha o executavel antigo, remove-o e inicia o novo arquivo baixado.
+   * O novo arquivo permanece com versao no nome (ex.: Companion-1.2.3.exe).
+   * @param {string} newExePath - Caminho completo do novo executavel baixado.
    */
   applyUpdate(newExePath) {
-    const currentExePath = process.execPath;
-    const currentDir = path.dirname(currentExePath);
-    const exeName = path.basename(currentExePath);
-    const batPath = path.join(app.getPath('temp'), 'update-companion.bat');
+    const { currentExePath, currentDir, exeName } = this.getPaths();
+    const batPath = path.join(currentDir, 'atualizar.bat');
+    const oldExeEsc = String(currentExePath).replace(/"/g, '""');
+    const newExeEsc = String(newExePath).replace(/"/g, '""');
+    const oldNameEsc = String(exeName).replace(/"/g, '""');
 
-    // Script batch super robusto que resolve problemas com OneDrive e locks de arquivo.
-    // 1. Muda de diretório para a pasta do executável (/d garante mudança de drive).
-    // 2. Tenta matar o processo por nome do executável de forma garantida.
-    // 3. Renomeia o executável original para .old (permitido pelo Windows mesmo bloqueado pelo OneDrive/indexação).
-    // 4. Copia o novo executável da pasta temp para a pasta atual.
-    // 5. Inicia a nova versão do Companion.
-    // 6. Limpa os arquivos temporários e antigos.
     const batContent = `@echo off
-chcp 65001 > nul
-title Atualizando Companion...
-timeout /t 1 /nobreak > nul
-
+setlocal EnableExtensions
 cd /d "${currentDir}"
 
-taskkill /f /im "${exeName}" > nul 2>&1
-del /f /q "${exeName}.old" > nul 2>&1
+set "OLD_EXE=${oldExeEsc}"
+set "NEW_EXE=${newExeEsc}"
+set "OLD_NAME=${oldNameEsc}"
 
-:loop_rename
-rename "${exeName}" "${exeName}.old" > nul 2>&1
-if errorlevel 1 (
-    timeout /t 1 /nobreak > nul
-    goto loop_rename
+if not exist "%NEW_EXE%" goto cleanup
+
+timeout /t 2 /nobreak >nul
+
+for /l %%I in (1,1,80) do (
+  taskkill /f /t /im "%OLD_NAME%" >nul 2>&1
+  if not exist "%OLD_EXE%" goto start_new
+  del /f /q "%OLD_EXE%" >nul 2>&1
+  if not exist "%OLD_EXE%" goto start_new
+  timeout /t 1 /nobreak >nul
 )
 
-:loop_copy
-copy /y "${newExePath}" "${exeName}" > nul
-if errorlevel 1 (
-    timeout /t 1 /nobreak > nul
-    goto loop_copy
-)
+if exist "%OLD_EXE%" ren "%OLD_EXE%" "%OLD_NAME%.old" >nul 2>&1
 
-start "" "${exeName}"
-del /f /q "${newExePath}" > nul 2>&1
+:start_new
+if exist "%NEW_EXE%" start "" "%NEW_EXE%"
 
-timeout /t 2 /nobreak > nul
-del /f /q "${exeName}.old" > nul 2>&1
-
-(goto) 2>nul & del "%~f0"
+:cleanup
+del /f /q "%~f0" >nul 2>&1
 `;
 
     fs.writeFileSync(batPath, batContent, 'utf8');
 
-    // Inicializa o script desvinculado (detached)
-    spawn('cmd.exe', ['/c', batPath], {
+    spawn('cmd.exe', ['/d', '/c', batPath], {
       cwd: currentDir,
       detached: true,
-      stdio: 'ignore'
+      stdio: 'ignore',
+      windowsHide: false
     }).unref();
 
     app.quit();

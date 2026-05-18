@@ -29,6 +29,12 @@ document.addEventListener('DOMContentLoaded', () => {
     messageText.style.display = 'none';
     progressContainer.style.display = 'flex';
     
+    // Adiciona classe para iniciar a animação do ícone de download
+    const iconWrapper = document.querySelector('.update-icon-wrapper');
+    if (iconWrapper) {
+      iconWrapper.classList.add('downloading');
+    }
+    
     // Dispara sinal para o Main iniciar download
     window.electronAPI.startUpdateDownload();
   });

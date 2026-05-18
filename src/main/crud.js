@@ -54,7 +54,14 @@ async function select(table, options = {}) {
   query = aplicarFiltros(query, options.filters);
   query = aplicarOrdenacao(query, options.order);
 
-  if (Number.isInteger(options.limit)) {
+  const hasLimit = Number.isInteger(options.limit);
+  const hasOffset = Number.isInteger(options.offset);
+
+  if (hasLimit && hasOffset) {
+    const from = Math.max(0, options.offset);
+    const to = from + Math.max(0, options.limit) - 1;
+    query = query.range(from, to);
+  } else if (hasLimit) {
     query = query.limit(options.limit);
   }
 

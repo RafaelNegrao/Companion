@@ -1,4 +1,4 @@
-// --- GestÃ£o de MÃºltiplas Abas de Pedido ---
+// --- GestÃƒÂ£o de MÃƒÂºltiplas Abas de Pedido ---
 let pedidoTabIdSeq = Date.now();
 function gerarPedidoTabId() {
   pedidoTabIdSeq += 1;
@@ -209,10 +209,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const folderBtn = document.getElementById('folder-pedido-btn');
     const pastaInput = document.getElementById('config-pasta');
     const pastaClienteInput = document.getElementById('config-pasta-cliente');
+    const screenshotBtn = document.getElementById('pedido-screenshot-btn');
     if (!folderBtn) return;
 
     const numeroPedido = String(tabData?.pedido || '').trim();
     const hasPedido = Boolean(numeroPedido);
+    const hasPedidoExistente = Boolean(tabData?.id || currentPedidoId);
     const pastaCliente = String(tabData?.pasta || '').trim();
     const pastaInfoExists = Boolean(tabData?.pasta_info?.exists);
     const hasPasta = pastaInfoExists || Boolean(pastaCliente);
@@ -230,13 +232,23 @@ document.addEventListener('DOMContentLoaded', () => {
       if (pastaClienteInput && pastaCliente) pastaClienteInput.value = pastaCliente;
     } else {
       folderBtn.classList.add('missing');
-      folderBtn.title = 'Criar pasta do pedido (AppData)';
+      if (!hasPedidoExistente) {
+        folderBtn.title = 'Salve o pedido antes de criar a pasta';
+      } else {
+        folderBtn.title = 'Criar pasta do pedido (AppData)';
+      }
       if (pastaInput) pastaInput.value = tabData?.diretorio || '';
       if (pastaClienteInput) pastaClienteInput.value = '';
     }
 
     const dropzone = document.getElementById('dropzone');
-    if (dropzone) dropzone.classList.toggle('disabled', !hasPedido);
+    if (dropzone) dropzone.classList.toggle('disabled', !Boolean(hasPedido && hasPasta));
+    if (screenshotBtn) {
+      screenshotBtn.disabled = !Boolean(hasPedido && hasPasta);
+      screenshotBtn.title = hasPedido && hasPasta
+        ? 'Capturar print da tela e anexar ao pedido'
+        : 'Crie a pasta do pedido para capturar um print';
+    }
   }
 
   function switchPedidoTab(newId) {
@@ -257,9 +269,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (nextTab && nextTab.data && Object.keys(nextTab.data).length > 0) {
       preencherPedidoNaTela(nextTab.data, nextTab.data.pedido);
       
-      // Se houver pedido ou certificado, mostra a Ã¡rea
-      if (nextTab.data.pedido || nextTab.data.versao) {
-        mostrarAreaDadosPedido();
+      // Se houver pedido ou certificado, mostra a ÃƒÂ¡rea
+      if (nextTab.data.id || nextTab.data.versao) {
+        mostrarAreaDadosPedido(true);
       } else {
         ocultarAreaDadosPedido();
       }
@@ -376,8 +388,8 @@ document.addEventListener('DOMContentLoaded', () => {
   async function closePedidoTab(id) {
     if (pedidoTabs.length <= 1) {
       customAppModal({
-        title: 'Atenção',
-        message: 'Você deve manter pelo menos um pedido aberto.',
+        title: 'AtenÃ§Ã£o',
+        message: 'VocÃª deve manter pelo menos um pedido aberto.',
         confirmText: 'OK'
       });
       return;
@@ -386,8 +398,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const tab = pedidoTabs.find(t => t.id === id);
     if (tab && tab.dirty) {
       const confirmado = await showCustomModal({
-        title: 'Alterações não salvas',
-        message: `O Pedido ${tab.number} possui alterações não salvas. Deseja realmente fechar?`,
+        title: 'AlteraÃ§Ãµes nÃ£o salvas',
+        message: `O Pedido ${tab.number} possui alteraÃ§Ãµes nÃ£o salvas. Deseja realmente fechar?`,
         confirmText: 'Fechar mesmo assim',
         cancelText: 'Cancelar',
         hideCancel: false
@@ -406,7 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
       limparTodosCampos();
       if (nextTab && nextTab.data && Object.keys(nextTab.data).length > 0) {
         preencherPedidoNaTela(nextTab.data, nextTab.data.pedido);
-        if (nextTab.data.pedido || nextTab.data.versao) mostrarAreaDadosPedido();
+        if (nextTab.data.id || nextTab.data.versao) mostrarAreaDadosPedido(true);
 
         nextTab.data = clonarDadosPedido(obterSnapshotPedidoAtual());
         if (!nextTab.baseline) {
@@ -441,6 +453,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (scrollArea) scrollArea.style.setProperty('display', 'none', 'important');
   }
 
+  function temCertificadoPedidoSelecionado() {
+    const select = document.getElementById('pedido-certificado-select');
+    if (!select) return false;
+    const option = select.options?.[select.selectedIndex];
+    const valor = String(option?.value || select.value || '').trim();
+    const texto = String(option?.textContent || '').trim();
+    return Boolean(valor) && !/^selecione/i.test(texto);
+  }
+
+  function atualizarVisibilidadeDadosPedidoPorCertificado() {
+    const numeroPedido = String(document.getElementById('pedido-numero-input')?.value || '').trim();
+    if (numeroPedido) {
+      mostrarAreaDadosPedido(true);
+    } else if (temCertificadoPedidoSelecionado()) {
+      mostrarAreaDadosPedido();
+    } else {
+      ocultarAreaDadosPedido();
+    }
+  }
+
   if (addTabBtn && addTabBtn.dataset.bound !== '1' && !addTabBtn.getAttribute('onclick')) {
     addTabBtn.dataset.bound = '1';
     addTabBtn.addEventListener('click', () => {
@@ -450,14 +482,14 @@ document.addEventListener('DOMContentLoaded', () => {
   renderPedidoTabs();
   ocultarAreaDadosPedido();
 
-  // Eventos de hover na Ã¡rea de gatilho
+  // Eventos de hover na ÃƒÂ¡rea de gatilho
   if (triggerArea) {
     triggerArea.addEventListener('mouseenter', () => {
       if (window.electronAPI && window.electronAPI.expandWindow) window.electronAPI.expandWindow();
     });
   }
 
-  // Eventos de hover no conteÃºdo principal
+  // Eventos de hover no conteÃƒÂºdo principal
   function deveManterJanelaAbertaPorInteracao() {
     const activeEl = document.activeElement;
     if (!activeEl) return false;
@@ -472,20 +504,31 @@ document.addEventListener('DOMContentLoaded', () => {
   if (mainContent) {
     mainContent.addEventListener('mouseenter', () => {
       if (window.electronAPI && window.electronAPI.cancelHide) window.electronAPI.cancelHide();
+      if (window.electronAPI && window.electronAPI.setWindowPointerIdle) window.electronAPI.setWindowPointerIdle(false);
     });
 
     mainContent.addEventListener('mouseleave', () => {
       const modal = document.getElementById('custom-modal');
       const isModalActive = modal && modal.classList.contains('active');
       
-      if (!isLocked && !isModalActive && !deveManterJanelaAbertaPorInteracao()) {
+      if (isLocked) {
+        if (window.electronAPI && window.electronAPI.setWindowPointerIdle) window.electronAPI.setWindowPointerIdle(true);
+      } else if (!isModalActive && !deveManterJanelaAbertaPorInteracao()) {
         if (window.electronAPI && window.electronAPI.collapseWindow) window.electronAPI.collapseWindow();
       }
     });
   }
 
-  // Atualiza o Ã­cone do cadeado
-  function updateLockIcon(locked) {
+  // Atualiza o ÃƒÂ­cone do cadeado
+  function animarIconeCadeado() {
+    if (!lockBtn) return;
+    lockBtn.classList.remove('lock-animate');
+    void lockBtn.offsetWidth;
+    lockBtn.classList.add('lock-animate');
+    setTimeout(() => lockBtn.classList.remove('lock-animate'), 650);
+  }
+
+  function updateLockIcon(locked, animar = false) {
     const svg = locked ? `
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
@@ -504,10 +547,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (locked) {
         lockBtn.classList.add('locked');
         lockBtn.title = 'Liberar janela';
+        lockBtn.setAttribute('aria-label', 'Liberar janela');
       } else {
         lockBtn.classList.remove('locked');
         lockBtn.title = 'Fixar janela';
+        lockBtn.setAttribute('aria-label', 'Fixar janela');
       }
+
+      if (animar) animarIconeCadeado();
     }
   }
 
@@ -516,7 +563,19 @@ document.addEventListener('DOMContentLoaded', () => {
     lockBtn.addEventListener('click', () => {
       isLocked = !isLocked;
       if (window.electronAPI && window.electronAPI.toggleLock) window.electronAPI.toggleLock(isLocked);
-      updateLockIcon(isLocked);
+      if (window.electronAPI && window.electronAPI.setWindowPointerIdle) window.electronAPI.setWindowPointerIdle(false);
+      updateLockIcon(isLocked, true);
+    });
+  }
+
+  if (mainContent) {
+    mainContent.addEventListener('dblclick', (event) => {
+      if (event.target?.closest?.('#lock-btn, #close-btn')) return;
+
+      isLocked = !isLocked;
+      if (window.electronAPI && window.electronAPI.toggleLock) window.electronAPI.toggleLock(isLocked);
+      if (window.electronAPI && window.electronAPI.setWindowPointerIdle) window.electronAPI.setWindowPointerIdle(false);
+      updateLockIcon(isLocked, true);
     });
   }
 
@@ -528,7 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Escuta mudanÃ§as de estado da janela
+  // Escuta mudanÃƒÂ§as de estado da janela
   if (window.electronAPI && window.electronAPI.onWindowState) {
     window.electronAPI.onWindowState((event, state) => {
       if (state === 'expanded') {
@@ -539,7 +598,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Inicializa o Ã­cone (se existir o botÃ£o)
+  // Inicializa o ÃƒÂ­cone (se existir o botÃƒÂ£o)
   if (lockBtn) updateLockIcon(false);
 
   let certificadosDataCache = [];
@@ -745,11 +804,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const linkInput = document.getElementById('config-cert-link');
     const addBtn = document.getElementById('config-cert-add-btn');
     const deleteBtn = document.getElementById('config-cert-delete-btn');
+    const clearBtn = document.getElementById('config-cert-clear-btn');
     const caret = document.querySelector('.config-cert-name-wrap .config-cert-caret');
     if (!nomeInput || !precoInput || !linkInput || !addBtn || !deleteBtn) return;
     if (addBtn.dataset.bound === '1') return;
 
     addBtn.dataset.bound = '1';
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        limparCamposCertificadoConfig();
+        toastNotifier.success('Campos de certificado limpos com sucesso.');
+      });
+    }
 
     nomeInput.addEventListener('input', () => {
       atualizarModoCertificadoConfig(nomeInput.value);
@@ -910,16 +977,16 @@ document.addEventListener('DOMContentLoaded', () => {
         window.certificadosCacheGlobal = certificadosDataCache;
         certificadosLookup = new Map();
 
-        // Limpa as opÃ§Ãµes existentes
+        // Limpa as opÃƒÂ§ÃƒÂµes existentes
         certificadoSelect.innerHTML = '';
         
-        // Adiciona opÃ§Ã£o padrÃ£o
+        // Adiciona opÃƒÂ§ÃƒÂ£o padrÃƒÂ£o
         const optionDefault = document.createElement('option');
         optionDefault.value = '';
         optionDefault.textContent = 'Selecione um certificado';
         certificadoSelect.appendChild(optionDefault);
         
-        // Adiciona cada certificado como opÃ§Ã£o
+        // Adiciona cada certificado como opÃƒÂ§ÃƒÂ£o
         certificadosDataCache.forEach(cert => {
           const option = document.createElement('option');
           option.value = cert.nome;
@@ -949,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.carregarCertificados = carregarCertificados;
 
-  // FunÃ§Ã£o para formatar input de moeda (pt-BR) ao perder o foco
+  // FunÃƒÂ§ÃƒÂ£o para formatar input de moeda (pt-BR) ao perder o foco
   function configurarPadronizacaoMoeda(id) {
     const input = document.getElementById(id);
     if (!input) return;
@@ -958,19 +1025,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const valor = input.value.trim();
       if (!valor) return;
 
-      // Converte para nÃºmero e depois formata de volta para pt-BR
+      // Converte para nÃƒÂºmero e depois formata de volta para pt-BR
       if (typeof window.parseMoedaParaNumero === 'function') {
         const num = window.parseMoedaParaNumero(valor);
         input.value = num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
       
-      // Recalcula se for o preÃ§o
+      // Recalcula se for o preÃƒÂ§o
       if (id === 'pedido-preco-input' && typeof calcularComissao === 'function') {
         calcularComissao();
       }
     });
 
-    // Permite apenas nÃºmeros, ponto e vÃ­rgula
+    // Permite apenas nÃƒÂºmeros, ponto e vÃƒÂ­rgula
     input.addEventListener('keypress', (e) => {
       if (!/[\d,.]/.test(e.key)) {
         e.preventDefault();
@@ -982,7 +1049,7 @@ document.addEventListener('DOMContentLoaded', () => {
   configurarPadronizacaoMoeda('pedido-comissao-input');
   configurarPadronizacaoMoeda('config-cert-preco');
 
-  // Atualiza o preÃ§o ao selecionar certificado
+  // Atualiza o preÃƒÂ§o ao selecionar certificado
   const pedidoInputMain = document.getElementById('pedido-numero-input');
 
   const certificadoSelect = document.querySelector('.info-row-vertical select');
@@ -1135,9 +1202,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const temCpf = /\b(CPF|E[-\s]?CPF|PF)\b/.test(texto);
 
     // Regra:
-    // - Se identificar CNPJ (ou variação), mostra Dados Empresa
+    // - Se identificar CNPJ (ou variaÃ§Ã£o), mostra Dados Empresa
     // - Se identificar apenas CPF, oculta Dados Empresa
-    // - Sem identificação clara, mantém visível
+    // - Sem identificaÃ§Ã£o clara, mantÃ©m visÃ­vel
     if (temCnpj) {
       sectionEmpresa.style.display = 'block';
       return;
@@ -1157,6 +1224,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!selectedOption) {
         atualizarVisibilidadeSecaoEmpresaPorCertificado('');
         atualizarDropdownCertificadoPedido();
+        atualizarVisibilidadeDadosPedidoPorCertificado();
         return;
       }
 
@@ -1166,13 +1234,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const precoInput = document.getElementById('pedido-preco-input');
         if (precoInput) {
           precoInput.value = ComissaoCalculator.formatNumberBR(ComissaoCalculator.toNumber(valor));
-          // ApÃ³s atualizar o preÃ§o, calcula a comissÃ£o
+          // ApÃƒÂ³s atualizar o preÃƒÂ§o, calcula a comissÃƒÂ£o
           calcularComissao();
         }
       }
 
       const certText = selectedOption.textContent || selectedOption.value || '';
       atualizarVisibilidadeSecaoEmpresaPorCertificado(certText);
+      atualizarVisibilidadeDadosPedidoPorCertificado();
     });
   }
 
@@ -1193,12 +1262,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (copiado) {
         toastNotifier.success('Link do certificado copiado.');
       } else {
-        toastNotifier.error('Não foi possível copiar o link.');
+        toastNotifier.error('NÃ£o foi possÃ­vel copiar o link.');
       }
     });
   }
 
-  // FunÃ§Ã£o para calcular comissÃ£o baseada nas configuraÃ§Ãµes
+  // FunÃƒÂ§ÃƒÂ£o para calcular comissÃƒÂ£o baseada nas configuraÃƒÂ§ÃƒÂµes
   function calcularComissao() {
     const calculadora = ComissaoCalculator.fromDOM();
     const precoInput = document.getElementById('pedido-preco-input');
@@ -1210,7 +1279,7 @@ document.addEventListener('DOMContentLoaded', () => {
       comissaoInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    // Listener para o botÃ£o de informaÃ§Ã£o
+    // Listener para o botÃƒÂ£o de informaÃƒÂ§ÃƒÂ£o
     const infoBtn = document.getElementById('ver-calculo-comissao');
     if (infoBtn) {
       // Remove listener antigo para evitar duplicidade
@@ -1221,15 +1290,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const html = `
           <div class="calculo-detalhe">
             <div class="row"><span>Valor do certificado:</span> <span>${ComissaoCalculator.formatCurrencyBR(detalhes.valorBase)}</span></div>
-            <div class="row"><span>Porcentagem na validaÃ§Ã£o (${detalhes.percentualValidacao.toFixed(1)}%):</span> <span>${ComissaoCalculator.formatCurrencyBR(detalhes.valorBruto)}</span></div>
+            <div class="row"><span>Porcentagem na validaÃƒÂ§ÃƒÂ£o (${detalhes.percentualValidacao.toFixed(1)}%):</span> <span>${ComissaoCalculator.formatCurrencyBR(detalhes.valorBruto)}</span></div>
             <div class="divider"></div>
             <div class="row"><span>(=) Valor Bruto:</span> <span>${ComissaoCalculator.formatCurrencyBR(detalhes.valorBruto)}</span></div>
             <div class="row"><span>(-) Imposto de renda (${detalhes.percentualImposto.toFixed(1)}%):</span> <span style="color: #ff3b30;">-${ComissaoCalculator.formatCurrencyBR(detalhes.valorImposto)}</span></div>
-            <div class="row"><span>(=) Valor lÃ­quido:</span> <span>${ComissaoCalculator.formatCurrencyBR(detalhes.valorLiquido)}</span></div>
+            <div class="row"><span>(=) Valor lÃƒÂ­quido:</span> <span>${ComissaoCalculator.formatCurrencyBR(detalhes.valorLiquido)}</span></div>
             <div class="row"><span>(-) Desconto adicional:</span> <span style="color: #ff3b30;">-${ComissaoCalculator.formatCurrencyBR(detalhes.descontoAdicional)}</span></div>
             <div class="divider"></div>
             <div class="row total"><span>Valor final:</span> <span>${ComissaoCalculator.formatCurrencyBR(detalhes.valorFinal)}</span></div>
-            <div class="obs">*Esse valor Ã© apenas uma aproximaÃ§Ã£o</div>
+            <div class="obs">*Esse valor ÃƒÂ© apenas uma aproximaÃƒÂ§ÃƒÂ£o</div>
           </div>
         `;
         showCustomModal({
@@ -1245,10 +1314,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return detalhes.valorFinal;
   }
 
-  // Expor a funÃ§Ã£o globalmente se necessÃ¡rio
+  // Expor a funÃƒÂ§ÃƒÂ£o globalmente se necessÃƒÂ¡rio
   window.calcularComissao = calcularComissao;
 
-  // Atualiza a comissÃ£o se o preÃ§o for alterado manualmente
+  // Atualiza a comissÃƒÂ£o se o preÃƒÂ§o for alterado manualmente
   const precoInputManual = document.getElementById('pedido-preco-input');
   if (precoInputManual) {
     precoInputManual.addEventListener('input', () => {
@@ -1301,14 +1370,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const tabEl = document.getElementById(tabId);
       if (tabEl) tabEl.classList.add('active');
 
-      // Recalcula o estado do botÃ£o de pasta ao retornar para Dados Pedido
+      // Recalcula o estado do botÃƒÂ£o de pasta ao retornar para Dados Pedido
       if (tabId === 'pedido' && typeof atualizarStatusPastaPedido === 'function') {
         atualizarStatusPastaPedido();
       }
     });
   });
 
-  // Sistema de seÃ§Ãµes retrÃ¡teis (Accordion)
+  // Sistema de seÃƒÂ§ÃƒÂµes retrÃƒÂ¡teis (Accordion)
   const docSectionTitles = document.querySelectorAll('.doc-section-title');
 
   docSectionTitles.forEach(title => {
@@ -1319,15 +1388,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  // MÃ¡scara para CNPJ
+  // MÃƒÂ¡scara para CNPJ
   function maskCNPJ(value) {
-    // Remove tudo que nÃ£o Ã© nÃºmero
+    // Remove tudo que nÃƒÂ£o ÃƒÂ© nÃƒÂºmero
     value = value.replace(/\D/g, '');
     
-    // Limita a 14 dÃ­gitos
+    // Limita a 14 dÃƒÂ­gitos
     value = value.substring(0, 14);
     
-    // Aplica a mÃ¡scara
+    // Aplica a mÃƒÂ¡scara
     if (value.length <= 2) {
       return value;
     } else if (value.length <= 5) {
@@ -1341,15 +1410,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // MÃ¡scara para CPF
+  // MÃƒÂ¡scara para CPF
   function maskCPF(value) {
-    // Remove tudo que nÃ£o Ã© nÃºmero
+    // Remove tudo que nÃƒÂ£o ÃƒÂ© nÃƒÂºmero
     value = value.replace(/\D/g, '');
     
-    // Limita a 11 dÃ­gitos
+    // Limita a 11 dÃƒÂ­gitos
     value = value.substring(0, 11);
     
-    // Aplica a mÃ¡scara
+    // Aplica a mÃƒÂ¡scara
     if (value.length <= 3) {
       return value;
     } else if (value.length <= 6) {
@@ -1361,22 +1430,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Remove mÃ¡scara do CPF (retorna apenas nÃºmeros)
+  // Remove mÃƒÂ¡scara do CPF (retorna apenas nÃƒÂºmeros)
   function unmaskCPF(value) {
     return value.replace(/\D/g, '');
   }
 
-  // Remove mÃ¡scara do CNPJ (retorna apenas nÃºmeros)
+  // Remove mÃƒÂ¡scara do CNPJ (retorna apenas nÃƒÂºmeros)
   function unmaskCNPJ(value) {
     return value.replace(/\D/g, '');
   }
 
-  // FunÃ§Ã£o para buscar dados da empresa na Receita Federal
+  // FunÃƒÂ§ÃƒÂ£o para buscar dados da empresa na Receita Federal
   async function buscarDadosEmpresa(cnpj) {
     const cnpjLimpo = unmaskCNPJ(cnpj);
     
     if (cnpjLimpo.length !== 14) {
-      console.log('CNPJ invÃ¡lido:', cnpjLimpo);
+      console.log('CNPJ invÃƒÂ¡lido:', cnpjLimpo);
       return null;
     }
     
@@ -1433,7 +1502,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
       
-      // Verificar se empresa estÃ¡ inapta e atualizar Ã­cone de situaÃ§Ã£o
+      // Verificar se empresa estÃƒÂ¡ inapta e atualizar ÃƒÂ­cone de situaÃƒÂ§ÃƒÂ£o
       const situacao = dados.descricao_situacao_cadastral?.toUpperCase() || '';
       const situacaoIcon = document.getElementById('situacao-icon');
       
@@ -1446,12 +1515,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
       
-      // Atualizar Ã­cone de situaÃ§Ã£o cadastral
+      // Atualizar ÃƒÂ­cone de situaÃƒÂ§ÃƒÂ£o cadastral
       if (situacaoIcon) {
         situacaoIcon.style.display = 'block';
         
         if (situacao.includes('ATIVA')) {
-          // Ãcone de check verde para empresa ativa
+          // ÃƒÂcone de check verde para empresa ativa
           situacaoIcon.innerHTML = `
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="3">
               <circle cx="12" cy="12" r="10"/>
@@ -1460,7 +1529,7 @@ document.addEventListener('DOMContentLoaded', () => {
           `;
           situacaoIcon.style.color = '#34c759';
         } else if (situacao.includes('INAPTA') || situacao.includes('SUSPENSA') || situacao.includes('BAIXADA')) {
-          // Ãcone de X vermelho para empresa inativa
+          // ÃƒÂcone de X vermelho para empresa inativa
           situacaoIcon.innerHTML = `
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff3b30" stroke-width="3">
               <circle cx="12" cy="12" r="10"/>
@@ -1470,7 +1539,7 @@ document.addEventListener('DOMContentLoaded', () => {
           `;
           situacaoIcon.style.color = '#ff3b30';
         } else {
-          // Ãcone neutro para outros casos
+          // ÃƒÂcone neutro para outros casos
           situacaoIcon.innerHTML = `
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff9500" stroke-width="2">
               <circle cx="12" cy="12" r="10"/>
@@ -1493,7 +1562,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       return null;
     } finally {
-      // Restaurar Ã­cone normal
+      // Restaurar ÃƒÂ­cone normal
       if (loadingIcon && normalIcon) {
         loadingIcon.style.display = 'none';
         normalIcon.style.display = 'block';
@@ -1501,7 +1570,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // FunÃ§Ã£o auxiliar para formatar data
+  // FunÃƒÂ§ÃƒÂ£o auxiliar para formatar data
   function formatarData(dataString) {
     // Espera formato YYYY-MM-DD
     if (!dataString) return '';
@@ -1512,7 +1581,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return dataString;
   }
 
-  // Aplica mÃ¡scara no campo CNPJ e busca dados ao terminar
+  // Aplica mÃƒÂ¡scara no campo CNPJ e busca dados ao terminar
   const cnpjInput = document.getElementById('empresa-cnpj');
   if (cnpjInput) {
     cnpjInput.addEventListener('input', (e) => {
@@ -1521,7 +1590,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const newValue = maskCNPJ(oldValue);
       e.target.value = newValue;
       
-      // Ajusta a posiÃ§Ã£o do cursor
+      // Ajusta a posiÃƒÂ§ÃƒÂ£o do cursor
       if (newValue.length > oldValue.length) {
         e.target.setSelectionRange(cursorPos + 1, cursorPos + 1);
       } else {
@@ -1553,7 +1622,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
     
-    // Aplica mÃ¡scara no valor inicial se existir
+    // Aplica mÃƒÂ¡scara no valor inicial se existir
     if (cnpjInput.value) {
       cnpjInput.value = maskCNPJ(cnpjInput.value);
     }
@@ -1562,7 +1631,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Helpers globais usados por carregamento/salvamento do pedido.
-// As mesmas mÃ¡scaras tambÃ©m existem no inicializador da tela; manter aqui evita
+// As mesmas mÃƒÂ¡scaras tambÃƒÂ©m existem no inicializador da tela; manter aqui evita
 // ReferenceError quando as rotinas abaixo rodam fora daquele escopo.
 function maskCNPJ(value) {
   value = String(value || '').replace(/\D/g, '').substring(0, 14);
@@ -1602,12 +1671,12 @@ function unmaskCNPJ(value) {
   return String(value || '').replace(/\D/g, '');
 }
 
-// FunÃ§Ã£o para buscar dados da pessoa por CPF
+// FunÃƒÂ§ÃƒÂ£o para buscar dados da pessoa por CPF
 async function buscarDadosPorCPF(cpf) {
   const cpfLimpo = unmaskCPF(cpf);
   
   if (cpfLimpo.length !== 11) {
-    console.log('CPF invÃ¡lido:', cpfLimpo);
+    console.log('CPF invÃƒÂ¡lido:', cpfLimpo);
     return null;
   }
   
@@ -1633,9 +1702,9 @@ async function buscarDadosPorCPF(cpf) {
     const dados = await response.json();
     console.log('[info] Dados recebidos da API:', dados);
     
-    // Verificar se encontrou dados vÃ¡lidos
+    // Verificar se encontrou dados vÃƒÂ¡lidos
     if (dados.status === 'ERROR' || !dados.nome) {
-      console.log('[aviso] CPF nÃ£o encontrado ou invÃ¡lido');
+      console.log('[aviso] CPF nÃƒÂ£o encontrado ou invÃƒÂ¡lido');
       return null;
     }
     
@@ -1650,7 +1719,7 @@ async function buscarDadosPorCPF(cpf) {
       console.log('[ok] Nome preenchido:', dados.nome);
     }
     
-    // Preencher data de nascimento se disponÃ­vel
+    // Preencher data de nascimento se disponÃƒÂ­vel
     if (dados.nascimento) {
       const nascimentoInput = document.querySelector('#subtab-pessoais .doc-section:nth-child(1) .form-grid-2:nth-child(2) .form-field:nth-child(2) input');
       if (nascimentoInput) {
@@ -1665,13 +1734,13 @@ async function buscarDadosPorCPF(cpf) {
       }
     }
     
-    // Preencher nome da mÃ£e se disponÃ­vel
+    // Preencher nome da mÃƒÂ£e se disponÃƒÂ­vel
     if (dados.nome_mae) {
       const maeInput = document.querySelector('#subtab-pessoais .doc-section:nth-child(1) .form-field.full input');
       if (maeInput) {
         maeInput.value = dados.nome_mae;
         maeInput.dispatchEvent(new Event('input', { bubbles: true }));
-        console.log('[ok] Nome da mÃ£e preenchido:', dados.nome_mae);
+        console.log('[ok] Nome da mÃƒÂ£e preenchido:', dados.nome_mae);
       }
     }
     
@@ -1680,7 +1749,7 @@ async function buscarDadosPorCPF(cpf) {
     console.error('[erro] Erro ao buscar dados por CPF:', error);
     return null;
   } finally {
-    // Restaurar Ã­cone normal
+    // Restaurar ÃƒÂ­cone normal
     if (loadingIcon && normalIcon) {
       loadingIcon.style.display = 'none';
       normalIcon.style.display = 'block';
@@ -1688,7 +1757,7 @@ async function buscarDadosPorCPF(cpf) {
   }
 }
 
-// Aplica mÃ¡scara no campo CPF com busca automÃ¡tica
+// Aplica mÃƒÂ¡scara no campo CPF com busca automÃƒÂ¡tica
 const cpfInput = document.getElementById('pessoa-cpf');
 console.log('[info] Campo CPF encontrado:', !!cpfInput);
 
@@ -1699,7 +1768,7 @@ if (cpfInput) {
     const newValue = maskCPF(oldValue);
     e.target.value = newValue;
     
-    // Ajusta a posiÃ§Ã£o do cursor
+    // Ajusta a posiÃƒÂ§ÃƒÂ£o do cursor
     if (newValue.length > oldValue.length) {
       e.target.setSelectionRange(cursorPos + 1, cursorPos + 1);
     } else {
@@ -1715,10 +1784,10 @@ if (cpfInput) {
     console.log('CPF digitado:', cpf, 'CPF limpo:', cpfLimpo, 'Tamanho:', cpfLimpo.length);
     
     if (cpfLimpo.length === 11) {
-      console.log('[ok] CPF vÃ¡lido, iniciando busca...');
+      console.log('[ok] CPF vÃƒÂ¡lido, iniciando busca...');
       await buscarDadosPorCPF(cpf);
     } else {
-      console.log('[aviso] CPF incompleto, busca nÃ£o realizada');
+      console.log('[aviso] CPF incompleto, busca nÃƒÂ£o realizada');
     }
   });
   
@@ -1737,14 +1806,14 @@ if (cpfInput) {
     }
   });
   
-  // Aplica mÃ¡scara no valor inicial se existir
+  // Aplica mÃƒÂ¡scara no valor inicial se existir
   if (cpfInput.value) {
     cpfInput.value = maskCPF(cpfInput.value);
   }
   
   console.log('[ok] Listeners de busca por CPF configurados');
 } else {
-  console.error('[erro] Campo CPF nÃ£o encontrado! ID: pessoa-cpf');
+  console.error('[erro] Campo CPF nÃƒÂ£o encontrado! ID: pessoa-cpf');
 }
 
 // Fallback: se o seletor antigo ainda existir, remover listener
@@ -1756,7 +1825,7 @@ if (oldCpfInput && oldCpfInput !== cpfInput && oldCpfInput.id !== 'pessoa-cpf') 
     const newValue = maskCPF(oldValue);
     e.target.value = newValue;
     
-    // Ajusta a posiÃ§Ã£o do cursor
+    // Ajusta a posiÃƒÂ§ÃƒÂ£o do cursor
     if (newValue.length > oldValue.length) {
       e.target.setSelectionRange(cursorPos + 1, cursorPos + 1);
     } else {
@@ -1764,7 +1833,7 @@ if (oldCpfInput && oldCpfInput !== cpfInput && oldCpfInput.id !== 'pessoa-cpf') 
     }
   });
   
-  // Aplica mÃ¡scara no valor inicial se existir
+  // Aplica mÃƒÂ¡scara no valor inicial se existir
   if (oldCpfInput.value) {
     oldCpfInput.value = maskCPF(oldCpfInput.value);
   }
@@ -1776,34 +1845,34 @@ if (oldCpfInput && oldCpfInput !== cpfInput && oldCpfInput.id !== 'pessoa-cpf') 
 
 let currentPedidoId = null;
 let isSaving = false;
-let currentUser = null; // Armazena o usuÃ¡rio logado
-let isLoadingPedido = false; // Flag para evitar marcar alteraÃ§Ãµes durante carregamento
+let currentUser = null; // Armazena o usuÃƒÂ¡rio logado
+let isLoadingPedido = false; // Flag para evitar marcar alteraÃƒÂ§ÃƒÂµes durante carregamento
 
-// Buscar usuÃ¡rio logado ao iniciar
+// Buscar usuÃƒÂ¡rio logado ao iniciar
 async function carregarUsuarioLogado() {
   try {
     // Tenta buscar do processo principal
     const userData = await window.electronAPI.getCurrentUser();
     if (userData) {
       currentUser = userData;
-      console.log('[ok] usuÃ¡rio carregado:', currentUser.email);
+      console.log('[ok] usuÃƒÂ¡rio carregado:', currentUser.email);
       return;
     }
     
-    // Se nÃ£o encontrar, tenta do localStorage
+    // Se nÃƒÂ£o encontrar, tenta do localStorage
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       currentUser = JSON.parse(storedUser);
-      console.log('[ok] usuÃ¡rio carregado do localStorage:', currentUser.email);
+      console.log('[ok] usuÃƒÂ¡rio carregado do localStorage:', currentUser.email);
     } else {
-      console.warn('[aviso] Nenhum usuÃ¡rio encontrado');
+      console.warn('[aviso] Nenhum usuÃƒÂ¡rio encontrado');
     }
   } catch (error) {
-    console.error('[erro] Erro ao carregar usuÃ¡rio:', error);
+    console.error('[erro] Erro ao carregar usuÃƒÂ¡rio:', error);
   }
 }
 
-// Carregar usuÃ¡rio e configuraÃ§Ãµes ao iniciar
+// Carregar usuÃƒÂ¡rio e configuraÃƒÂ§ÃƒÂµes ao iniciar
 carregarUsuarioLogado().then(() => {
   carregarConfiguracoes();
 });
@@ -1815,7 +1884,7 @@ const statusText = statusElement?.querySelector('.status-text');
 const pedidoSaveBtn = document.getElementById('pedido-save-btn');
 const pedidoClearBtn = document.getElementById('pedido-clear-btn');
 
-// Ãcones SVG para diferentes estados
+// ÃƒÂcones SVG para diferentes estados
 const icons = {
   idle: `<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>`,
   saving: `<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`,
@@ -1828,7 +1897,7 @@ const icons = {
 
 let ultimoErroSalvamento = '';
 
-// FunÃ§Ã£o para atualizar o status visual
+// FunÃƒÂ§ÃƒÂ£o para atualizar o status visual
 function atualizarStatusSalvamento(estado, mensagem, detalhesErro = '') {
   if (!statusElement || !statusIcon) return;
   
@@ -1860,14 +1929,14 @@ function atualizarStatusSalvamento(estado, mensagem, detalhesErro = '') {
   // Adiciona a classe do novo estado
   statusElement.classList.add(estado);
   
-  // Atualiza o Ã­cone
+  // Atualiza o ÃƒÂ­cone
   statusIcon.innerHTML = icons[estado] || icons.idle;
   if (statusText) statusText.textContent = mensagem;
   
   // Atualiza o tooltip
   statusElement.title = mensagem;
   
-  // Atualiza cor do botão de salvar se houver alterações
+  // Atualiza cor do botÃ£o de salvar se houver alteraÃ§Ãµes
   if (pedidoSaveBtn) {
     if (estado === 'dirty') {
       pedidoSaveBtn.classList.add('dirty');
@@ -1877,7 +1946,7 @@ function atualizarStatusSalvamento(estado, mensagem, detalhesErro = '') {
   }
 }
 
-// Auxiliar para converter valores monetÃ¡rios (BRL) para nÃºmero (DB)
+// Auxiliar para converter valores monetÃƒÂ¡rios (BRL) para nÃƒÂºmero (DB)
 window.parseMoedaParaNumero = function(valor) {
   return ComissaoCalculator.toNumber(valor);
 };
@@ -1904,7 +1973,7 @@ function coletarDadosFormulario(allowEmpty = false) {
     hora: document.querySelector('.pedido-header .pedido-field:nth-child(3) input')?.value || null,
     versao: document.querySelector('.info-row-vertical select')?.value || null,
     modalidade: document.querySelector('.info-grid .info-item:nth-child(1) select')?.value || null,
-    venda: document.querySelector('.info-grid .info-item:nth-child(2) select')?.value === 'sim',
+    venda: document.querySelector('.info-grid .info-item:nth-child(2) select')?.value === 'sim' ? 'sim' : 'nao',
     preco_certificado: parseMoedaParaNumero(document.getElementById('pedido-preco-input')?.value),
     comissao: parseMoedaParaNumero(document.getElementById('pedido-comissao-input')?.value),
     status: document.querySelector('input[name="status"]:checked')?.value || null,
@@ -1954,7 +2023,7 @@ function coletarDadosFormulario(allowEmpty = false) {
 
 
 
-// FunÃ§Ã£o para salvar pedido
+// FunÃƒÂ§ÃƒÂ£o para salvar pedido
 function normalizarDadosPedidoParaComparacao(valor) {
   if (valor === undefined || valor === '') return null;
   if (valor === null || typeof valor !== 'object') return valor;
@@ -2019,6 +2088,19 @@ function atualizarEstadoAlteracaoPedidoAtual({ updateStatus = true } = {}) {
   return alterado;
 }
 
+function possuiAlteracoesPendentesExcetoPedido() {
+  const currentTab = obterAbaPedidoAtiva();
+  if (!currentTab) return false;
+
+  const atual = clonarDadosPedido(obterSnapshotPedidoAtual());
+  const baseline = clonarDadosPedido(currentTab.baseline || {});
+
+  delete atual.pedido;
+  delete baseline.pedido;
+
+  return serializarDadosPedidoParaComparacao(atual) !== serializarDadosPedidoParaComparacao(baseline);
+}
+
 async function salvarPedido(options = {}) {
   const { force = false } = options;
   if (isSaving) return false;
@@ -2035,9 +2117,9 @@ async function salvarPedido(options = {}) {
 
   if (!numPedido) {
     if (window.toastNotifier) {
-      window.toastNotifier.warning('Por favor, preencha o número do Pedido!');
+      window.toastNotifier.warning('Por favor, preencha o nÃºmero do Pedido!');
     }
-    atualizarStatusSalvamento('error', 'Informe o número');
+    atualizarStatusSalvamento('error', 'Informe o nÃºmero');
     return false;
   }
 
@@ -2072,19 +2154,20 @@ async function salvarPedido(options = {}) {
   
   try {
     const status = dados.status;
-    // Se o status for finalizador, pede confirmação ANTES de salvar
+    // Se o status for finalizador, pede confirmaÃ§Ã£o ANTES de salvar
     if (status === 'aprovado' || status === 'cancelado') {
       const confirmado = await showCustomModal({
         title: 'Finalizar Pedido',
-        message: `Deseja finalizar este pedido como ${status.toUpperCase()}? Isso apagará todos os documentos locais e a pasta do pedido permanentemente.`,
+        message: `Deseja finalizar este pedido como ${status.toUpperCase()}? Isso apagarÃ¡ todos os documentos locais e a pasta do pedido permanentemente.`,
         confirmText: 'Sim, Finalizar',
-        cancelText: 'Não, Voltar',
+        cancelText: 'NÃ£o, Voltar',
         hideCancel: false
       });
 
       if (!confirmado) return false;
     }
 
+    console.log('Salvando dados:', JSON.stringify(dados, null, 2));
     const resultado = await window.electronAPI.salvarPedido(dados);
     
     if (resultado.success) {
@@ -2094,6 +2177,9 @@ async function salvarPedido(options = {}) {
       
       atualizarStatusSalvamento(foiAtualizado ? 'updated' : 'saved', foiAtualizado ? 'Sobrescrito' : 'Salvo');
       atualizarContadoresStatus();
+      if (typeof atualizarStatusPastaPedido === 'function') {
+        atualizarStatusPastaPedido();
+      }
       
       // Limpa o estado dirty da aba ativa
       const currentTab = pedidoTabs.find(t => t.id === activePedidoTabId);
@@ -2106,11 +2192,11 @@ async function salvarPedido(options = {}) {
         try {
           await window.processPendingAttachments(dados.pedido);
         } catch (err) {
-          console.error('Erro ao processar anexos pendentes apÃ³s salvar pedido:', err);
+          console.error('Erro ao processar anexos pendentes apÃƒÂ³s salvar pedido:', err);
         }
       }
 
-      // LÃ³gica de finalizaÃ§Ã£o (apagar pasta e zerar campos)
+      // LÃƒÂ³gica de finalizaÃƒÂ§ÃƒÂ£o (apagar pasta e zerar campos)
       if (status === 'aprovado' || status === 'cancelado') {
         const usuario = currentUser?.email;
         const pedidoNum = dados.pedido;
@@ -2132,6 +2218,7 @@ async function salvarPedido(options = {}) {
           pedidoInput.value = '';
           pedidoInput.focus();
         }
+        atualizarTituloAbaPedidoAtiva('');
         currentPedidoId = null;
         definirBaselinePedidoAtual();
       }
@@ -2159,7 +2246,7 @@ function marcarPedidoAlterado() {
   atualizarEstadoAlteracaoPedidoAtual();
 }
 
-// Marca alteraÃ§Ãµes sem salvar automaticamente
+// Marca alteraÃƒÂ§ÃƒÂµes sem salvar automaticamente
 function inicializarControleManualPedido() {
   const tab = document.getElementById('pedido');
   if (!tab) return;
@@ -2196,6 +2283,7 @@ function inicializarControleManualPedido() {
       currentTab.baseline = clonarDadosPedido(obterSnapshotPedidoAtual());
       currentTab.dirty = false;
     }
+    atualizarTituloAbaPedidoAtiva('');
 
     currentPedidoId = null;
     if (typeof atualizarStatusPastaPedido === 'function') {
@@ -2215,11 +2303,11 @@ function inicializarControleManualPedido() {
 // Inicializa o controle manual quando a aba for carregada
 setTimeout(inicializarControleManualPedido, 500);
 
-// FunÃ§Ã£o para limpar todos os campos do formulÃ¡rio
+// FunÃƒÂ§ÃƒÂ£o para limpar todos os campos do formulÃƒÂ¡rio
 function limparTodosCampos() {
   console.log('[info] Limpando todos os campos...');
   
-  // Limpar campos do cabeÃ§alho (exceto nÃºmero do pedido)
+  // Limpar campos do cabeÃƒÂ§alho (exceto nÃƒÂºmero do pedido)
   const dataInput = document.querySelector('.pedido-header .pedido-field:nth-child(2) input');
   const horaInput = document.querySelector('.pedido-header .pedido-field:nth-child(3) input');
   const certificadoSelect = document.querySelector('.info-row-vertical select');
@@ -2234,16 +2322,20 @@ function limparTodosCampos() {
   if (typeof window.atualizarDropdownCertificadoPedido === 'function') {
     window.atualizarDropdownCertificadoPedido();
   }
+  // Mostra ou oculta containers conforme o certificado preenchido
+  if (typeof window.atualizarVisibilidadeDadosPedidoPorCertificado === 'function') {
+    window.atualizarVisibilidadeDadosPedidoPorCertificado();
+  }
   if (atendimentoSelect) atendimentoSelect.selectedIndex = 0;
   if (vendaSelect) vendaSelect.selectedIndex = 0;
   if (precoInput) precoInput.value = '';
   if (comissaoInput) comissaoInput.value = '';
 
-  // Reseta visibilidade da seÃ§Ã£o empresa
+  // Reseta visibilidade da seÃƒÂ§ÃƒÂ£o empresa
   const sectionEmpresa = document.getElementById('section-empresa');
   if (sectionEmpresa) sectionEmpresa.style.display = 'block';
   
-  // Limpar status - volta para digitaÃ§Ã£o
+  // Limpar status - volta para digitaÃƒÂ§ÃƒÂ£o
   const digitacaoRadio = document.querySelector('input[name="status"][value="digitacao"]');
   if (digitacaoRadio) {
     digitacaoRadio.checked = true;
@@ -2279,7 +2371,7 @@ function limparTodosCampos() {
   const warningDiv = document.getElementById('empresa-inapta-warning');
   if (warningDiv) warningDiv.style.display = 'none';
   
-  // Esconder Ã­cone de situaÃ§Ã£o cadastral
+  // Esconder ÃƒÂ­cone de situaÃƒÂ§ÃƒÂ£o cadastral
   const situacaoIcon = document.getElementById('situacao-icon');
   if (situacaoIcon) situacaoIcon.style.display = 'none';
   
@@ -2290,6 +2382,11 @@ function limparTodosCampos() {
   if (folderPedidoBtn) {
     folderPedidoBtn.classList.remove('exists', 'missing');
     folderPedidoBtn.title = 'Gerenciar pasta do pedido';
+  }
+  const screenshotBtn = document.getElementById('pedido-screenshot-btn');
+  if (screenshotBtn) {
+    screenshotBtn.disabled = true;
+    screenshotBtn.title = 'Crie a pasta do pedido para capturar um print';
   }
 
   const pastaInput = document.getElementById('config-pasta');
@@ -2328,9 +2425,32 @@ function ocultarAreaDadosPedido() {
 }
 window.ocultarAreaDadosPedido = ocultarAreaDadosPedido;
 
-// FunÃ§Ã£o para buscar e preencher pedido
-function mostrarAreaDadosPedido() {
+function temCertificadoPedidoSelecionado() {
+  const select = document.getElementById('pedido-certificado-select');
+  if (!select) return false;
+  const option = select.options?.[select.selectedIndex];
+  const valor = String(option?.value || select.value || '').trim();
+  const texto = String(option?.textContent || '').trim();
+  return Boolean(valor) && !/^selecione/i.test(texto);
+}
+window.temCertificadoPedidoSelecionado = temCertificadoPedidoSelecionado;
+
+function atualizarVisibilidadeDadosPedidoPorCertificado() {
+  if (currentPedidoId || temCertificadoPedidoSelecionado()) {
+    mostrarAreaDadosPedido(true);
+  } else {
+    ocultarAreaDadosPedido();
+  }
+}
+window.atualizarVisibilidadeDadosPedidoPorCertificado = atualizarVisibilidadeDadosPedidoPorCertificado;
+
+// FunÃƒÂ§ÃƒÂ£o para buscar e preencher pedido
+function mostrarAreaDadosPedido(force = false) {
   const scrollArea = document.getElementById('form-scrollable-area');
+  if (!force && !temCertificadoPedidoSelecionado()) {
+    ocultarAreaDadosPedido();
+    return;
+  }
   if (scrollArea) scrollArea.style.setProperty('display', 'flex', 'important');
 }
 window.mostrarAreaDadosPedido = mostrarAreaDadosPedido;
@@ -2430,8 +2550,8 @@ function escreverValorSelect(select, valor) {
 
 function preencherPedidoNaTela(pedido, numeroPedido, pedidoInput) {
   if (!pedido) return;
+  currentPedidoId = pedido.id || null;
 
-  mostrarAreaDadosPedido();
   console.log('[debug] Preenchendo pedido na tela:', pedido.pedido || numeroPedido, pedido);
 
   if (pedidoInput) {
@@ -2489,6 +2609,10 @@ function preencherPedidoNaTela(pedido, numeroPedido, pedidoInput) {
   if (typeof window.atualizarDropdownCertificadoPedido === 'function') {
     window.atualizarDropdownCertificadoPedido();
   }
+  // Mostra ou oculta containers conforme o certificado preenchido
+  if (typeof window.atualizarVisibilidadeDadosPedidoPorCertificado === 'function') {
+    window.atualizarVisibilidadeDadosPedidoPorCertificado();
+  }
   if (selectCertificado) {
     const opt = selectCertificado.options[selectCertificado.selectedIndex];
     const certTextAtual = opt?.textContent || selectCertificado.value || '';
@@ -2501,7 +2625,7 @@ function preencherPedidoNaTela(pedido, numeroPedido, pedidoInput) {
     }
   }
   escreverValorSelect(document.querySelector('.info-grid .info-item:nth-child(1) select'), pedido.modalidade || '');
-  escreverValorSelect(document.querySelector('.info-grid .info-item:nth-child(2) select'), pedido.venda ? 'sim' : 'nao');
+  escreverValorSelect(document.querySelector('.info-grid .info-item:nth-child(2) select'), ehVendaSim(pedido.venda) ? 'sim' : 'nao');
   const precoRaw = pedido.preco_certificado ?? '';
   const comissaoRaw = pedido.comissao ?? '';
   escreverValorCampo(
@@ -2517,7 +2641,7 @@ function preencherPedidoNaTela(pedido, numeroPedido, pedidoInput) {
       : ComissaoCalculator.formatNumberBR(ComissaoCalculator.toNumber(comissaoRaw))
   );
   
-  // Inicializa o cÃ¡lculo e o botÃ£o de info
+  // Inicializa o cÃƒÂ¡lculo e o botÃƒÂ£o de info
   calcularComissao();
 
   const statusValue = String(pedido.status || 'digitacao').toLowerCase().replace(/ /g, '_');
@@ -2541,7 +2665,7 @@ function preencherPedidoNaTela(pedido, numeroPedido, pedidoInput) {
     console.error('[erro] Erro ao atualizar visual da pasta:', error);
   }
 
-  currentPedidoId = pedido.id || null;
+  
   atualizarStatusSalvamento('saved', 'Salvo');
 
   const dropzone = document.getElementById('dropzone');
@@ -2565,11 +2689,10 @@ async function buscarEPreencherPedido(numeroPedido) {
   const numeroPedidoNormalizado = normalizarNumeroPedidoBusca(numeroPedido);
   if (!numeroPedidoNormalizado) return;
   
-  const pedidoInput = document.querySelector('.pedido-field input[type="text"]');
+  const pedidoInput = document.getElementById('pedido-numero-input');
   const requestId = ++pedidoBuscaRequestId;
-  mostrarAreaDadosPedido();
   
-  // Marca que estÃ¡ carregando para evitar marcar alteraÃ§Ãµes durante preenchimento
+  // Marca que estÃƒÂ¡ carregando para evitar marcar alteraÃƒÂ§ÃƒÂµes durante preenchimento
   isLoadingPedido = true;
   
   // Feedback visual - loading
@@ -2596,7 +2719,7 @@ async function buscarEPreencherPedido(numeroPedido) {
       preencherPedidoNaTela(resultado.data, numeroPedidoNormalizado, pedidoInput);
       definirBaselinePedidoAtual();
     } else {
-      // Pedido nÃ£o encontrado - preparar para novo cadastro do zero
+      // Pedido nÃƒÂ£o encontrado - preparar para novo cadastro do zero
       if (pedidoInput) {
         pedidoInput.style.borderColor = '#ff9500';
         setTimeout(() => {
@@ -2604,12 +2727,12 @@ async function buscarEPreencherPedido(numeroPedido) {
         }, 1200);
       }
       
-      console.log('[aviso] Pedido nÃ£o encontrado. Limpando campos para novo cadastro:', numeroPedidoNormalizado);
+      console.log('[aviso] Pedido nÃƒÂ£o encontrado. Limpando campos para novo cadastro:', numeroPedidoNormalizado);
       
       // Limpar todos os dados e deixar os campos vazios
       limparTodosCampos();
       
-      // Restaurar o nÃºmero do pedido que o usuÃ¡rio digitou
+      // Restaurar o nÃƒÂºmero do pedido que o usuÃƒÂ¡rio digitou
       const pedidoNumeroInput = document.getElementById('pedido-numero-input');
       if (pedidoNumeroInput) {
         pedidoNumeroInput.value = numeroPedidoNormalizado;
@@ -2619,15 +2742,11 @@ async function buscarEPreencherPedido(numeroPedido) {
       definirBaselinePedidoAtual();
       atualizarStatusSalvamento('idle', 'Novo pedido');
       
-      // Atualizar Ã­cone da pasta para vermelho (missing) porque Ã© um pedido novo sem pasta
+      // Atualizar ÃƒÂ­cone da pasta para vermelho (missing) porque ÃƒÂ© um pedido novo sem pasta
       atualizarVisualPastaPedido(false);
       
-      // Habilitar dropzone para novos pedidos tambÃ©m
-      const dropzone = document.getElementById('dropzone');
-      if (dropzone) dropzone.classList.remove('disabled');
-      
-      // Garante que a Ã¡rea de dados estÃ¡ visÃ­vel
-      mostrarAreaDadosPedido();
+      // Pedido novo: so mostra os containers apos selecionar certificado.
+      ocultarAreaDadosPedido();
     }
   } catch (error) {
     if (!pedidoBuscaAindaAtual(numeroPedidoNormalizado, requestId)) {
@@ -2657,7 +2776,7 @@ async function buscarEPreencherPedido(numeroPedido) {
       await atualizarStatusPastaPedido();
     }
 
-    // Carregar anexos da pasta fÃ­sica
+    // Carregar anexos da pasta fÃƒÂ­sica
     const numeroPedido = document.getElementById('pedido-numero-input')?.value?.trim();
     if (numeroPedido && typeof carregarAnexosDaPasta === 'function') {
       carregarAnexosDaPasta(numeroPedido);
@@ -2665,12 +2784,12 @@ async function buscarEPreencherPedido(numeroPedido) {
   }
 }
 
-// FunÃ§Ã£o para limpar campos e preparar para novo pedido
+// FunÃƒÂ§ÃƒÂ£o para limpar campos e preparar para novo pedido
 function limparCamposParaNovoPedido(numeroPedido) {
-  // MantÃ©m o nÃºmero do pedido e reseta o ID
+  // MantÃƒÂ©m o nÃƒÂºmero do pedido e reseta o ID
   currentPedidoId = null;
   
-  // Limpar campos do cabeÃ§alho (exceto pedido)
+  // Limpar campos do cabeÃƒÂ§alho (exceto pedido)
   const dataInput = document.querySelector('.pedido-header .pedido-field:nth-child(2) input');
   const horaInput = document.querySelector('.pedido-header .pedido-field:nth-child(3) input');
   
@@ -2690,36 +2809,48 @@ function limparCamposParaNovoPedido(numeroPedido) {
     horaInput.value = `${hora}:${minuto}`;
   }
   
-  // Reset status para digitaÃ§Ã£o
+  // Reset status para digitaÃƒÂ§ÃƒÂ£o
   const digitacaoRadio = document.querySelector('input[name="status"][value="digitacao"]');
   if (digitacaoRadio) {
     digitacaoRadio.checked = true;
   }
   
-  // NÃ£o limpar os outros campos para permitir preenchimento rÃ¡pido
-  // Inicializa o cÃ¡lculo e o botÃ£o de info para novos pedidos
+  // NÃƒÂ£o limpar os outros campos para permitir preenchimento rÃƒÂ¡pido
+  // Inicializa o cÃƒÂ¡lculo e o botÃƒÂ£o de info para novos pedidos
   calcularComissao();
 
   console.log('[debug] Campos preparados para novo pedido:', numeroPedido);
 }
 
 // Buscar pedido ao sair do campo PEDIDO ou pressionar Enter
-const pedidoInput = document.querySelector('.pedido-field input[type="text"]');
+const pedidoInput = document.getElementById('pedido-numero-input');
 if (pedidoInput) {
-  let pedidoBuscaTimeout = null;
   let ultimaBuscaPedido = '';
   let ultimaBuscaMomento = 0;
 
   async function executarBuscaPedidoAtual() {
-    clearTimeout(pedidoBuscaTimeout);
-
     const numeroPedido = normalizarNumeroPedidoBusca(pedidoInput.value);
     if (!numeroPedido) {
       pedidoBuscaRequestId += 1;
       currentPedidoId = null;
       limparTodosCampos();
       definirBaselinePedidoAtual();
+      atualizarTituloAbaPedidoAtiva('');
       atualizarStatusSalvamento('idle', 'Pronto');
+      return;
+    }
+
+    const abaAtiva = obterAbaPedidoAtiva();
+    const pedidoBaseline = normalizarNumeroPedidoBusca(abaAtiva?.baseline?.pedido || '');
+    const alteracoesForaPedido = possuiAlteracoesPendentesExcetoPedido();
+
+    // Evita sobrescrever campos jÃ¡ editados quando o pedido nÃ£o mudou.
+    if (alteracoesForaPedido && numeroPedido === pedidoBaseline) {
+      return;
+    }
+
+    // Sem alteraÃ§Ãµes no nÃºmero do pedido, nÃ£o precisa recarregar novamente.
+    if (numeroPedido === pedidoBaseline && currentPedidoId) {
       return;
     }
 
@@ -2733,19 +2864,8 @@ if (pedidoInput) {
     await buscarEPreencherPedido(numeroPedido);
   }
 
-  function agendarBuscaPedidoAtual() {
-    clearTimeout(pedidoBuscaTimeout);
-    pedidoBuscaTimeout = setTimeout(() => {
-      executarBuscaPedidoAtual();
-    }, 750);
-  }
-
   // Busca ao pressionar Enter ou perder foco
-  // (A Ã¡rea de dados serÃ¡ exibida apenas ao finalizar a ediÃ§Ã£o e buscar o pedido)
-
-  pedidoInput.addEventListener('input', () => {
-    agendarBuscaPedidoAtual();
-  });
+  // (A ÃƒÂ¡rea de dados serÃƒÂ¡ exibida apenas ao finalizar a ediÃƒÂ§ÃƒÂ£o e buscar o pedido)
 
   // Ao perder o foco (blur) - busca antes de permitir salvamento
   pedidoInput.addEventListener('blur', async () => {
@@ -2762,9 +2882,77 @@ if (pedidoInput) {
   });
 }
 
-// Carregar configuraÃ§Ãµes
+// Carregar configuraÃƒÂ§ÃƒÂµes
 let isCarregandoConfiguracoes = false;
 let configuracoesAlteradas = false;
+const TRANSLUCIDEZ_JANELA_PADRAO = 100;
+
+function normalizarTranslucidezJanela(valor) {
+  const numero = Number(valor);
+  if (!Number.isFinite(numero)) return TRANSLUCIDEZ_JANELA_PADRAO;
+  return Math.min(100, Math.max(10, Math.round(numero)));
+}
+
+function obterChaveTranslucidezJanela(usuario = currentUser?.email) {
+  return `companion-window-translucency:${usuario || 'local'}`;
+}
+
+function lerTranslucidezJanela(usuario = currentUser?.email) {
+  return normalizarTranslucidezJanela(
+    localStorage.getItem(obterChaveTranslucidezJanela(usuario)) ?? TRANSLUCIDEZ_JANELA_PADRAO
+  );
+}
+
+function salvarTranslucidezJanela(percentual, usuario = currentUser?.email) {
+  localStorage.setItem(
+    obterChaveTranslucidezJanela(usuario),
+    String(normalizarTranslucidezJanela(percentual))
+  );
+}
+
+function atualizarControlesTranslucidezJanela(percentual) {
+  const valor = normalizarTranslucidezJanela(percentual);
+  const range = document.getElementById('config-window-translucency');
+  const number = document.getElementById('config-window-translucency-number');
+  const label = document.getElementById('config-window-translucency-label');
+
+  if (range) {
+    range.value = String(valor);
+    range.style.setProperty('--translucency-fill', `${((valor - 10) / 90) * 100}%`);
+  }
+  if (number) number.value = String(valor);
+  if (label) label.textContent = `${valor}%`;
+}
+
+function aplicarTranslucidezJanela(percentual) {
+  const valor = normalizarTranslucidezJanela(percentual);
+  atualizarControlesTranslucidezJanela(valor);
+  if (window.electronAPI?.setWindowIdleOpacity) {
+    window.electronAPI.setWindowIdleOpacity(valor);
+  }
+}
+
+function inicializarTranslucidezJanela(usuario = currentUser?.email) {
+  const range = document.getElementById('config-window-translucency');
+  const number = document.getElementById('config-window-translucency-number');
+  if (!range || !number) return;
+
+  aplicarTranslucidezJanela(lerTranslucidezJanela(usuario));
+
+  if (range.dataset.boundTranslucency === '1') return;
+  range.dataset.boundTranslucency = '1';
+  number.dataset.boundTranslucency = '1';
+
+  const sincronizar = (event) => {
+    aplicarTranslucidezJanela(event.target.value);
+  };
+
+  range.addEventListener('input', sincronizar);
+  number.addEventListener('input', sincronizar);
+  number.addEventListener('blur', () => {
+    aplicarTranslucidezJanela(number.value);
+  });
+}
 
 function garantirBarraInferiorConfiguracoes() {
   const saveSection = document.querySelector('#configuracoes > .section:last-child');
@@ -2957,7 +3145,7 @@ function inicializarSecoesConfiguracoesRetrateis() {
       titulo.appendChild(arrow);
     }
 
-    // Por padrão, as seções de Configurações iniciam recolhidas
+    // Por padrÃ£o, as seÃ§Ãµes de ConfiguraÃ§Ãµes iniciam recolhidas
     if (!secao.classList.contains('collapsed')) {
       secao.classList.add('collapsed');
     }
@@ -2973,6 +3161,7 @@ function inicializarSecoesConfiguracoesRetrateis() {
 garantirBarraInferiorConfiguracoes();
 inicializarMonitoramentoConfiguracoes();
 inicializarSecoesConfiguracoesRetrateis();
+inicializarTranslucidezJanela();
 atualizarStatusConfiguracoes('idle', 'Sem alteracoes');
 
 function obterChaveConsoleConfiguracoes(usuario = currentUser?.email) {
@@ -3016,6 +3205,7 @@ async function carregarConfiguracoes() {
     inicializarMonitoramentoConfiguracoes();
     inicializarSecoesConfiguracoesRetrateis();
     inicializarToggleSenhaConfig();
+    inicializarTranslucidezJanela();
     isCarregandoConfiguracoes = true;
 
     if (!currentUser) {
@@ -3025,7 +3215,7 @@ async function carregarConfiguracoes() {
     const usuario = currentUser?.email;
 
     if (!usuario) {
-      console.warn('NÃ£o foi possÃ­vel carregar configuraÃ§Ãµes: usuÃ¡rio logado nÃ£o encontrado');
+      console.warn('NÃƒÂ£o foi possÃƒÂ­vel carregar configuraÃƒÂ§ÃƒÂµes: usuÃƒÂ¡rio logado nÃƒÂ£o encontrado');
       atualizarStatusConfiguracoes('idle', 'Sem alteracoes');
       return;
     }
@@ -3033,7 +3223,7 @@ async function carregarConfiguracoes() {
     const resultado = await window.electronAPI.buscarConfiguracoes(usuario);
     
     if (!resultado.success) {
-      console.error('Erro ao carregar configuraÃ§Ãµes:', resultado.error);
+      console.error('Erro ao carregar configuraÃƒÂ§ÃƒÂµes:', resultado.error);
       atualizarStatusConfiguracoes('idle', 'Sem alteracoes');
       return;
     }
@@ -3064,21 +3254,22 @@ async function carregarConfiguracoes() {
     setField('config-desc-total', config.desconto_total ?? 20);
     setField('config-imp-renda', config.imposto_validacao ?? 15);
     setField('config-desc-validacao', config.desconto_validacao ?? 2.75);
+    inicializarTranslucidezJanela(usuarioConfigurado);
     sincronizarSwitchConsoleConfiguracoes(usuarioConfigurado);
     await atualizarStatusPastaUsuario();
     configuracoesAlteradas = false;
     atualizarStatusConfiguracoes('idle', 'Sem alteracoes');
 
-    console.log('ConfiguraÃ§Ãµes carregadas com sucesso!');
+    console.log('ConfiguraÃƒÂ§ÃƒÂµes carregadas com sucesso!');
   } catch (error) {
-    console.error('Erro ao carregar configuraÃ§Ãµes:', error);
+    console.error('Erro ao carregar configuraÃƒÂ§ÃƒÂµes:', error);
     atualizarStatusConfiguracoes('idle', 'Sem alteracoes');
   } finally {
     isCarregandoConfiguracoes = false;
   }
 }
 
-// Salvar configuraÃ§Ãµes
+// Salvar configuraÃƒÂ§ÃƒÂµes
 const salvarConfigBtn = document.getElementById('salvar-config-btn');
 if (salvarConfigBtn) {
   salvarConfigBtn.addEventListener('click', async () => {
@@ -3094,7 +3285,7 @@ if (salvarConfigBtn) {
       atualizarStatusConfiguracoes('idle', 'Sem alteracoes');
       showCustomModal({
         title: 'Erro',
-        message: 'UsuÃ¡rio logado nÃ£o encontrado.',
+        message: 'UsuÃƒÂ¡rio logado nÃƒÂ£o encontrado.',
         confirmText: 'Entendido',
         hideCancel: true
       });
@@ -3119,6 +3310,8 @@ if (salvarConfigBtn) {
       desconto_validacao: parseFloat(document.getElementById('config-desc-validacao')?.value) || 0
     };
     salvarConsoleHabilitado(Boolean(document.getElementById('config-console-enabled')?.checked), usuario);
+    salvarTranslucidezJanela(document.getElementById('config-window-translucency')?.value, usuario);
+    aplicarTranslucidezJanela(document.getElementById('config-window-translucency')?.value);
     
     try {
       const resultado = await window.electronAPI.salvarConfiguracoes(config);
@@ -3130,23 +3323,23 @@ if (salvarConfigBtn) {
           senha: config.senha || currentUser?.senha
         };
         localStorage.setItem('user', JSON.stringify(currentUser));
-        if (window.toastNotifier) window.toastNotifier.success('ConfiguraÃ§Ãµes salvas com sucesso.');
+        if (window.toastNotifier) window.toastNotifier.success('ConfiguraÃƒÂ§ÃƒÂµes salvas com sucesso.');
         configuracoesAlteradas = false;
         atualizarStatusConfiguracoes('saved', 'Configuracoes salvas');
-        console.log('ConfiguraÃ§Ãµes salvas:', resultado.data);
+        console.log('ConfiguraÃƒÂ§ÃƒÂµes salvas:', resultado.data);
       } else {
         atualizarStatusConfiguracoes('error', 'Erro ao salvar configuracoes');
-        if (window.toastNotifier) window.toastNotifier.error('Erro ao salvar configuraÃ§Ãµes: ' + resultado.error);
+        if (window.toastNotifier) window.toastNotifier.error('Erro ao salvar configuraÃƒÂ§ÃƒÂµes: ' + resultado.error);
       }
     } catch (error) {
-      console.error('Erro ao salvar configuraÃ§Ãµes:', error);
+      console.error('Erro ao salvar configuraÃƒÂ§ÃƒÂµes:', error);
       atualizarStatusConfiguracoes('error', 'Erro ao salvar configuracoes');
-      if (window.toastNotifier) window.toastNotifier.error('Erro ao salvar configuraÃ§Ãµes.');
+      if (window.toastNotifier) window.toastNotifier.error('Erro ao salvar configuraÃƒÂ§ÃƒÂµes.');
     }
   });
 }
 
-// Carregar configuraÃ§Ãµes ao abrir a aba
+// Carregar configuraÃƒÂ§ÃƒÂµes ao abrir a aba
 const configTab = document.querySelector('[data-tab="configuracoes"]');
 let configTabJaInicializada = false;
 if (configTab) {
@@ -3166,9 +3359,9 @@ if (configTab) {
 // CONSULTA TAB - Tabela e Linha do Tempo
 // =============================================
 
-// Dados e configuraÃ§Ãµes da linha do tempo
+// Dados e configuraÃƒÂ§ÃƒÂµes da linha do tempo
 let pedidosData = [];
-let timelineRange = { inicio: 6, fim: 24 }; // PadrÃ£o 06:00 - 00:00
+let timelineRange = { inicio: 6, fim: 24 }; // PadrÃƒÂ£o 06:00 - 00:00
 let currentDateRange = { dataDe: null, dataAte: null }; // Range de datas atual
 let certificadosLookup = new Map();
 let abrindoPedidoDaConsulta = false;
@@ -3197,7 +3390,7 @@ function obterTipoCertificado(nomeVersao) {
     }
   }
 
-  // 2. Opção Legado: diferenciação por substring para pedidos antigos ou sem campo definido
+  // 2. OpÃ§Ã£o Legado: diferenciaÃ§Ã£o por substring para pedidos antigos ou sem campo definido
   if (chave.includes('CNPJ')) {
     return 'CNPJ';
   } else if (chave.includes('CPF')) {
@@ -3376,7 +3569,7 @@ function atualizarRelatorioConsulta(dados) {
         <div class="relatorio-row text-blue">
           <div class="relatorio-item-label">
             <span class="relatorio-bullet bullet-venda-extra"></span>
-            <span class="label-text">Comissão de Vendas Extras <span class="label-count">${qtdVendas}</span></span>
+            <span class="label-text">ComissÃ£o de Vendas Extras <span class="label-count">${qtdVendas}</span></span>
           </div>
           <div class="relatorio-item-value font-semibold">+ ${valorVendaFmt}</div>
         </div>
@@ -3385,8 +3578,8 @@ function atualizarRelatorioConsulta(dados) {
       <div class="relatorio-net-result">
         <div class="relatorio-row-result">
           <div class="result-label">
-            <span class="label-title">TOTAL LÍQUIDO ESPERADO</span>
-            <span class="label-desc">Validações + Vendas</span>
+            <span class="label-title">TOTAL LÃQUIDO ESPERADO</span>
+            <span class="label-desc">ValidaÃ§Ãµes + Vendas</span>
           </div>
           <div class="result-value-badge">${totalGeralFmt}</div>
         </div>
@@ -3395,7 +3588,7 @@ function atualizarRelatorioConsulta(dados) {
   `;
 }
 
-// Calcula diferenÃ§a em dias entre duas datas
+// Calcula diferenÃƒÂ§a em dias entre duas datas
 function calcularDiferencaDias(dataInicio, dataFim) {
   if (!dataInicio || !dataFim) return 0;
   const inicio = new Date(dataInicio);
@@ -3405,7 +3598,7 @@ function calcularDiferencaDias(dataInicio, dataFim) {
   return diffDays;
 }
 
-// Verifica se Ã© modo multi-dias
+// Verifica se ÃƒÂ© modo multi-dias
 function isModoMultiDias() {
   return calcularDiferencaDias(currentDateRange.dataDe, currentDateRange.dataAte) > 0;
 }
@@ -3465,7 +3658,7 @@ function atualizarHeaderTimeline() {
       timelineDateSpan.textContent = `${dataInicio.toLocaleDateString('pt-BR')} a ${dataFim.toLocaleDateString('pt-BR')}`;
     }
   } else {
-    // Modo dia Ãºnico
+    // Modo dia ÃƒÂºnico
     const dataSelecionada = new Date(currentDateRange.dataDe + 'T00:00:00');
     const dataFormatada = dataSelecionada.toLocaleDateString('pt-BR', {
       weekday: 'long',
@@ -3495,8 +3688,9 @@ async function carregarPedidosDoServidor() {
     });
     
     if (resultado.success && resultado.data && resultado.data.length > 0) {
+      const dadosRecentes = deduplicarPedidosMaisRecentes(resultado.data);
       // Processar dados do servidor (colunas conforme tabela Supabase)
-      pedidosData = resultado.data.map(p => ({
+      pedidosData = dadosRecentes.map(p => ({
         num_pedido: p.pedido || p.id,
         hora: p.hora || '00:00',
         nome: p.nome || 'N/A',
@@ -3533,21 +3727,21 @@ function extrairHora(timestamp) {
   return `${String(data.getHours()).padStart(2, '0')}:${String(data.getMinutes()).padStart(2, '0')}`;
 }
 
-// Formata data para exibiÃ§Ã£o
+// Formata data para exibiÃƒÂ§ÃƒÂ£o
 function formatarData(timestamp) {
   if (!timestamp) return '-';
   const data = new Date(timestamp);
   return data.toLocaleDateString('pt-BR');
 }
 
-// Formata data ISO para exibiÃ§Ã£o
+// Formata data ISO para exibiÃƒÂ§ÃƒÂ£o
 function formatarDataISO(dataISO) {
   if (!dataISO) return '-';
   const data = new Date(dataISO);
   return data.toLocaleDateString('pt-BR');
 }
 
-// Calcula o range dinÃ¢mico baseado nos horÃ¡rios dos pedidos
+// Calcula o range dinÃƒÂ¢mico baseado nos horÃƒÂ¡rios dos pedidos
 function calcularRangeDinamico() {
   if (pedidosData.length === 0) {
     timelineRange = { inicio: 6, fim: 24 };
@@ -3568,7 +3762,7 @@ function calcularRangeDinamico() {
   timelineRange.fim = Math.min(24, maxHora + 1);
 }
 
-// Gera as marcaÃ§Ãµes de hora dinamicamente
+// Gera as marcaÃƒÂ§ÃƒÂµes de hora dinamicamente
 function gerarMarcacoesHora() {
   const hoursContainer = document.querySelector('#consulta .timeline-hours');
   if (!hoursContainer) return;
@@ -3576,7 +3770,7 @@ function gerarMarcacoesHora() {
   hoursContainer.innerHTML = '';
   
   const range = timelineRange.fim - timelineRange.inicio;
-  const numMarcacoes = Math.min(7, range + 1); // MÃ¡ximo 7 marcaÃ§Ãµes
+  const numMarcacoes = Math.min(7, range + 1); // MÃƒÂ¡ximo 7 marcaÃƒÂ§ÃƒÂµes
   
   for (let i = 0; i < numMarcacoes; i++) {
     const percent = (i / (numMarcacoes - 1)) * 100;
@@ -3593,7 +3787,7 @@ function gerarMarcacoesHora() {
   }
 }
 
-// Gera as marcaÃ§Ãµes de dias para modo multi-dias
+// Gera as marcaÃƒÂ§ÃƒÂµes de dias para modo multi-dias
 function gerarMarcacoesDias() {
   const hoursContainer = document.querySelector('#consulta .timeline-hours');
   if (!hoursContainer) return;
@@ -3604,7 +3798,7 @@ function gerarMarcacoesDias() {
   const dataFim = new Date(currentDateRange.dataAte + 'T00:00:00');
   const numDias = calcularDiferencaDias(currentDateRange.dataDe, currentDateRange.dataAte) + 1;
   
-  // Limitar a 10 marcaÃ§Ãµes para nÃ£o ficar muito cheio
+  // Limitar a 10 marcaÃƒÂ§ÃƒÂµes para nÃƒÂ£o ficar muito cheio
   const step = numDias <= 10 ? 1 : Math.ceil(numDias / 10);
   
   for (let i = 0; i < numDias; i += step) {
@@ -3636,7 +3830,7 @@ function agruparPedidosPorData() {
   return grupos;
 }
 
-// Calcula posiÃ§Ã£o do dia na timeline multi-dias
+// Calcula posiÃƒÂ§ÃƒÂ£o do dia na timeline multi-dias
 function calcularPosicaoDia(dataStr) {
   if (!currentDateRange.dataDe || !currentDateRange.dataAte) return 50;
   
@@ -3829,10 +4023,10 @@ function agruparPedidosPorPeriodoTimeline(escala = obterEscalaTimelinePeriodo())
     .sort((a, b) => a.start - b.start);
 }
 
-// Dados de exemplo para demonstraÃ§Ã£o
+// Dados de exemplo para demonstraÃƒÂ§ÃƒÂ£o
 function carregarDadosExemplo() {
   pedidosData = [
-    { num_pedido: '1234', hora: '08:30', nome: 'JoÃ£o Silva', status: 'aprovado', versao: 'A1', data: '19/12/2025' },
+    { num_pedido: '1234', hora: '08:30', nome: 'JoÃƒÂ£o Silva', status: 'aprovado', versao: 'A1', data: '19/12/2025' },
     { num_pedido: '1235', hora: '09:15', nome: 'Maria Santos', status: 'digitacao', versao: 'A3', data: '19/12/2025' },
     { num_pedido: '1236', hora: '10:45', nome: 'Carlos Oliveira', status: 'video', versao: 'A1', data: '19/12/2025' },
     { num_pedido: '1237', hora: '14:00', nome: 'Ana Costa', status: 'cancelado', versao: 'A3', data: '19/12/2025' },
@@ -3846,7 +4040,19 @@ function carregarDadosExemplo() {
 }
 
 function normalizarStatus(status) {
-  const statusLimpo = String(status || 'digitacao').toLowerCase().replace(/\s+/g, '_');
+  const bruto = String(status || 'digitacao')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+  if (bruto.includes('aprov')) return 'aprovado';
+  if (bruto.includes('cancel')) return 'cancelado';
+  if (bruto.includes('video')) return 'video';
+  if (bruto.includes('verific')) return 'verificacao';
+  if (bruto.includes('digit')) return 'digitacao';
+
+  const statusLimpo = bruto.replace(/\s+/g, '_');
   const statusValidos = ['aprovado', 'cancelado', 'video', 'verificacao', 'digitacao'];
   return statusValidos.includes(statusLimpo) ? statusLimpo : 'digitacao';
 }
@@ -3865,6 +4071,27 @@ function getStatusLabel(status) {
     default:
       return 'Digita\u00e7\u00e3o';
   }
+}
+
+function deduplicarPedidosMaisRecentes(lista) {
+  if (!Array.isArray(lista) || lista.length === 0) return [];
+
+  const vistos = new Set();
+  const resultado = [];
+
+  // Com a consulta ordenada por data/id desc, o primeiro item de cada pedido Ã© o mais recente.
+  lista.forEach((pedido) => {
+    const numero = String(pedido?.pedido ?? pedido?.num_pedido ?? '').trim();
+    if (!numero) {
+      resultado.push(pedido);
+      return;
+    }
+    if (vistos.has(numero)) return;
+    vistos.add(numero);
+    resultado.push(pedido);
+  });
+
+  return resultado;
 }
 
 // Renderiza a linha do tempo
@@ -3899,7 +4126,7 @@ function renderizarTimeline() {
           <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
       </div>
-      <div class="empty-state-text">Nenhum pedido encontrado para o período selecionado.</div>
+      <div class="empty-state-text">Nenhum pedido encontrado para o perÃ­odo selecionado.</div>
     `;
     timelineContainer.appendChild(emptyBox);
     return;
@@ -3909,7 +4136,7 @@ function renderizarTimeline() {
     // Modo multi-dias: agrupa por data
     renderizarTimelineMultiDias(container, timelineContainer);
   } else {
-    // Modo dia Ãºnico: por hora
+    // Modo dia ÃƒÂºnico: por hora
     renderizarTimelineDiaUnicoAgrupado(container, timelineContainer);
   }
 }
@@ -4050,7 +4277,7 @@ function obterClasseFaixaTimeline(index, modoCompacto) {
 
 // Renderiza timeline para um Ãºnico dia (por hora)
 function renderizarTimelineDiaUnicoAgrupado(container, timelineContainer) {
-  if (timelineContainer) timelineContainer.classList.remove('multi-dias');
+  if (timelineContainer) timelineContainer.classList.add('multi-dias');
   gerarMarcacoesHora();
 
   const gruposPorHora = new Map();
@@ -4067,7 +4294,7 @@ function renderizarTimelineDiaUnicoAgrupado(container, timelineContainer) {
   gruposRender.forEach((grupo, index) => {
     const horaCentro = minutosParaHora(grupo.minutosCentro);
     const posicao = calcularPosicaoHoraDinamica(horaCentro);
-    const laneClass = obterClasseFaixaTimeline(index, modoCompacto);
+    const isAbove = index % 2 === 0;
     const statusDominante = obterStatusDominante(grupo.pedidos);
 
     const pedidosIds = grupo.pedidos
@@ -4079,37 +4306,38 @@ function renderizarTimelineDiaUnicoAgrupado(container, timelineContainer) {
       ? grupo.horaInicio
       : `${grupo.horaInicio}-${grupo.horaFim}`;
 
-    let conteudoBalao = '';
-    if (modoCompacto) {
-      conteudoBalao = `
-        <div class="timeline-card-line">${totalPedidos}</div>
-      `;
-    } else {
-      const limiteLinhas = 4;
-      const idsVisiveis = pedidosIds.slice(0, limiteLinhas);
-      const linhasIds = idsVisiveis
-        .map((id) => `<div class="timeline-card-line">#${escaparHtml(id)}</div>`)
-        .join('');
-      const restante = pedidosIds.length - idsVisiveis.length;
-      const linhaExtra = restante > 0
-        ? `<div class="timeline-card-line">+${restante}</div>`
-        : '';
-      conteudoBalao = `${linhasIds}${linhaExtra}`;
+    const classeStatusBalao = ` status-${statusDominante}`;
+
+    let alignClass = '';
+    if (posicao < 30) {
+      alignClass = ' align-left';
+    } else if (posicao > 70) {
+      alignClass = ' align-right';
     }
 
-    const balloon = document.createElement('div');
-    balloon.className = `timeline-pedido ${laneClass}`;
-    balloon.style.left = `${posicao}%`;
-    balloon.dataset.pedidos = pedidosIds.join(',');
-    balloon.title = montarTooltipGrupoTimeline(grupo);
-    balloon.innerHTML = `
-      <span class="timeline-node status-${statusDominante}" aria-hidden="true"></span>
-      <div class="pedido-balloon simple status-${statusDominante}${modoCompacto ? ' is-compact' : ''}">
-        ${conteudoBalao}
+    const dayGroup = document.createElement('div');
+    dayGroup.className = `timeline-day-group ${isAbove ? 'timeline-above' : 'timeline-below'}`;
+    dayGroup.style.left = `${posicao}%`;
+    dayGroup.dataset.pedidos = pedidosIds.join(',');
+
+    dayGroup.innerHTML = `
+      <div class="day-balloon${classeStatusBalao}">
+        <div class="day-count">${totalPedidos}</div>
+        <div class="day-details${alignClass}">
+          <div class="day-details-header">${escaparHtml(faixaHorario)}</div>
+          <div class="day-pedidos-list">
+            ${grupo.pedidos.map(p => `
+              <div class="day-pedido-item">
+                <span>#${p.num_pedido}</span>
+                <span>${p.hora}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
       </div>
     `;
 
-    container.appendChild(balloon);
+    container.appendChild(dayGroup);
   });
 }
 
@@ -4118,7 +4346,7 @@ function renderizarTimelineDiaUnico(container, timelineContainer) {
 }
 
 function limparDestaqueTimeline() {
-  document.querySelectorAll('#consulta .timeline-pedido.is-highlight').forEach((el) => {
+  document.querySelectorAll('#consulta .timeline-pedido.is-highlight, #consulta .timeline-day-group.is-highlight').forEach((el) => {
     el.classList.remove('is-highlight');
   });
 }
@@ -4128,7 +4356,7 @@ function destacarBaloesTimelinePorPedido(numeroPedido) {
   const pedidoAlvo = String(numeroPedido || '').trim();
   if (!pedidoAlvo) return;
 
-  const baloes = document.querySelectorAll('#consulta .timeline-pedido[data-pedidos]');
+  const baloes = document.querySelectorAll('#consulta .timeline-pedido[data-pedidos], #consulta .timeline-day-group[data-pedidos]');
   baloes.forEach((balao) => {
     const pedidos = String(balao.dataset.pedidos || '')
       .split(',')
@@ -4140,7 +4368,7 @@ function destacarBaloesTimelinePorPedido(numeroPedido) {
   });
 }
 
-// Renderiza timeline para mÃºltiplos dias (agrupado por data)
+// Renderiza timeline para mÃƒÂºltiplos dias (agrupado por data)
 function renderizarTimelineMultiDias(container, timelineContainer) {
   if (timelineContainer) timelineContainer.classList.add('multi-dias');
   const escala = obterEscalaTimelinePeriodo();
@@ -4261,7 +4489,7 @@ function renderizarTabela(dados) {
           <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
       </div>
-      <div class="empty-state-text">Nenhum pedido encontrado para o período selecionado.</div>
+      <div class="empty-state-text">Nenhum pedido encontrado para o perÃ­odo selecionado.</div>
     `;
     tableWrapper.appendChild(emptyBox);
     return;
@@ -4310,7 +4538,7 @@ function renderizarTabela(dados) {
   });
 }
 
-// Retorna o Ã­cone de status
+// Retorna o ÃƒÂ­cone de status
 function getStatusIcon(status) {
   const statusNormalizado = normalizarStatus(status);
   return `<span class="status-badge status-${statusNormalizado}">
@@ -4339,7 +4567,7 @@ if (btnConsultaBuscar) {
       });
       
       if (resultado.success && resultado.data) {
-        let dadosFiltrados = resultado.data;
+        let dadosFiltrados = deduplicarPedidosMaisRecentes(resultado.data);
         const vendaFiltro = document.getElementById('consulta-venda')?.value;
         
         if (vendaFiltro === 'sim') {
@@ -4389,7 +4617,7 @@ if (btnConsultaHoje) {
   });
 }
 
-// Navegação de Dias nos Filtros de Consulta
+// NavegaÃ§Ã£o de Dias nos Filtros de Consulta
 function ajustarDiasConsulta(inputId, delta) {
   const input = document.getElementById(inputId);
   if (!input) return;
@@ -4443,6 +4671,7 @@ if (consultaTab) {
 let indicadoresJaInicializado = false;
 let indicadoresCarregando = false;
 let indicadoresUltimoSnapshot = null;
+let indicadoresTodosPedidos = [];
 
 function obterMesAtualInput() {
   const hoje = new Date();
@@ -4467,9 +4696,22 @@ function normalizarDataISOIndicador(valor) {
   if (!valor) return '';
   const texto = String(valor).trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(texto)) return texto.slice(0, 10);
+  if (/^\d{4}\/\d{2}\/\d{2}/.test(texto)) return texto.slice(0, 10).replace(/\//g, '-');
   if (/^\d{2}\/\d{2}\/\d{4}/.test(texto)) {
     const [dia, mes, ano] = texto.slice(0, 10).split('/');
     return `${ano}-${mes}-${dia}`;
+  }
+  if (/^\d{2}-\d{2}-\d{4}/.test(texto)) {
+    const [dia, mes, ano] = texto.slice(0, 10).split('-');
+    return `${ano}-${mes}-${dia}`;
+  }
+  if (/^\d{10,13}$/.test(texto)) {
+    const numero = Number(texto);
+    const ts = texto.length === 10 ? numero * 1000 : numero;
+    const dataTs = new Date(ts);
+    if (!Number.isNaN(dataTs.getTime())) {
+      return `${dataTs.getFullYear()}-${String(dataTs.getMonth() + 1).padStart(2, '0')}-${String(dataTs.getDate()).padStart(2, '0')}`;
+    }
   }
   const data = new Date(texto);
   if (Number.isNaN(data.getTime())) return '';
@@ -4489,9 +4731,25 @@ function obterValorIndicador(pedido) {
 }
 
 function mapearPedidoIndicador(pedido) {
-  const dataISO = normalizarDataISOIndicador(pedido?.data || pedido?.updated_at || pedido?.created_at);
+  // Usa `data` como principal (mesma base da Consulta), com fallback para registros antigos.
+  const dataISO = normalizarDataISOIndicador(
+    pedido?.data
+    || pedido?.DATA
+    || pedido?.data_pedido
+    || pedido?.DATA_PEDIDO
+    || pedido?.updated_at
+    || pedido?.created_at
+  );
   const data = dataISO ? new Date(`${dataISO}T00:00:00`) : null;
-  const status = normalizarStatus(pedido?.status);
+  const statusOrigem = pedido?.status
+    ?? pedido?.STATUS
+    ?? pedido?.status_pedido
+    ?? pedido?.STATUS_PEDIDO
+    ?? pedido?.situacao
+    ?? pedido?.SITUACAO
+    ?? pedido?.etapa
+    ?? pedido?.ETAPA;
+  const status = normalizarStatus(statusOrigem);
   const versao = String(pedido?.versao || pedido?.certificado || '').trim();
   const uf = String(pedido?.uf || pedido?.estado || '').trim().toUpperCase().slice(0, 2);
 
@@ -4513,7 +4771,7 @@ function mapearPedidoIndicador(pedido) {
 }
 
 function pedidosValidosIndicadores(pedidos) {
-  return pedidos.filter((pedido) => pedido.status !== 'cancelado');
+  return pedidos.filter((pedido) => pedido.status === 'aprovado');
 }
 
 function somarValoresIndicadores(pedidos) {
@@ -4557,9 +4815,9 @@ function obterTopEntradaMapa(mapa) {
 function renderizarKPIsIndicadores(container, resumo) {
   if (!container) return;
   const cards = [
-    { label: 'Total do mês', value: formatarMoedaIndicador(resumo.totalMes), sub: `${resumo.validos.length} pedidos válidos`, color: 'rgba(10, 132, 255, 0.42)' },
-    { label: 'Aprovados', value: String(resumo.aprovados.length), sub: `${resumo.taxaAprovacao.toFixed(0)}% de aprovação`, color: 'rgba(52, 199, 89, 0.42)' },
-    { label: 'Ticket médio', value: formatarMoedaIndicador(resumo.ticketMedio), sub: 'por pedido válido', color: 'rgba(255, 149, 0, 0.42)' },
+    { label: 'Total do mÃªs', value: formatarMoedaIndicador(resumo.totalMes), sub: `${resumo.validos.length} pedidos vÃ¡lidos`, color: 'rgba(10, 132, 255, 0.42)' },
+    { label: 'Aprovados', value: String(resumo.aprovados.length), sub: `${resumo.taxaAprovacao.toFixed(0)}% de aprovaÃ§Ã£o`, color: 'rgba(52, 199, 89, 0.42)' },
+    { label: 'Ticket mÃ©dio', value: formatarMoedaIndicador(resumo.ticketMedio), sub: 'por pedido vÃ¡lido', color: 'rgba(255, 149, 0, 0.42)' },
     { label: 'Melhor dia', value: resumo.melhorDiaLabel, sub: formatarMoedaIndicador(resumo.melhorDiaValor), color: 'rgba(175, 82, 222, 0.42)' }
   ];
 
@@ -4606,7 +4864,7 @@ function renderizarMetasIndicadores(resumo) {
   }
 }
 
-function renderizarEmptyChart(container, texto = 'Sem dados para o período') {
+function renderizarEmptyChart(container, texto = 'Sem dados para o perÃ­odo') {
   if (!container) return;
   container.innerHTML = `<div class="chart-empty">${escaparHtml(texto)}</div>`;
 }
@@ -4665,7 +4923,7 @@ function desenharGraficoUnificado(resumo) {
     return;
   }
   
-  // O valor máximo e valores diários devem incluir a soma de CPF + CNPJ + Vendas
+  // O valor mÃ¡ximo e valores diÃ¡rios devem incluir a soma de CPF + CNPJ + Vendas
   const valores = modoGraficoIndicadores === 'valor'
     ? resumo.valoresPorDia.map((_, idx) => (resumo.valoresPorDiaCNPJ[idx] || 0) + (resumo.valoresPorDiaCPF[idx] || 0) + (resumo.valoresPorDiaVenda[idx] || 0))
     : resumo.qtdPorDia.map((_, idx) => (resumo.qtdPorDiaCNPJ[idx] || 0) + (resumo.qtdPorDiaCPF[idx] || 0) + (resumo.qtdPorDiaVenda[idx] || 0));
@@ -4682,7 +4940,7 @@ function desenharGraficoUnificado(resumo) {
   const plotH = altura - margem.top - margem.bottom;
   const maxValor = Math.max(...valores, 1);
 
-  // 1. Encontra todos os índices dos dias com dados válidos no mês
+  // 1. Encontra todos os Ã­ndices dos dias com dados vÃ¡lidos no mÃªs
   const diasComDados = [];
   valores.forEach((v, idx) => {
     if (v > 0) diasComDados.push(idx);
@@ -4697,13 +4955,13 @@ function desenharGraficoUnificado(resumo) {
     maxIdx = Math.min(valores.length - 1, maxIdx + 1);
   }
 
-  // Gera o subset de dias ativos entre a data mínima e máxima com dados
+  // Gera o subset de dias ativos entre a data mÃ­nima e mÃ¡xima com dados
   const subsetDias = Array.from({ length: maxIdx - minIdx + 1 }, (_, i) => minIdx + i);
   const numDias = subsetDias.length;
 
   const slotW = plotW / Math.max(1, numDias);
   
-  // Largura dinâmica proporcional ao número de dias exibidos
+  // Largura dinÃ¢mica proporcional ao nÃºmero de dias exibidos
   const barW = Math.max(10, Math.min(30, slotW * 0.45));
   
   const barras = subsetDias.map((diaIdx, subIdx) => {
@@ -4723,7 +4981,7 @@ function desenharGraficoUnificado(resumo) {
     let rects = [];
     let currentY = margem.top + plotH;
     
-    // Gera o conteúdo do tooltip unificado (HTML estilizado) para este dia específico
+    // Gera o conteÃºdo do tooltip unificado (HTML estilizado) para este dia especÃ­fico
     const tooltipHtml = `
       <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; min-width: 140px;">
         <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px;">
@@ -4745,7 +5003,7 @@ function desenharGraficoUnificado(resumo) {
       </div>
     `.trim().replace(/\s+/g, ' ').replace(/"/g, '&quot;');
 
-    // Determina quais barras estão ativas para este dia específico
+    // Determina quais barras estÃ£o ativas para este dia especÃ­fico
     const activeBars = [];
     if (vCPF > 0) activeBars.push({ fill: 'var(--ui-blue)', h: hCPF });
     if (vCNPJ > 0) activeBars.push({ fill: 'var(--ui-orange)', h: hCNPJ });
@@ -4774,27 +5032,27 @@ function desenharGraficoUnificado(resumo) {
   const labelsX = subsetDias.map((diaIdx, subIdx) => {
     const diaReal = diaIdx + 1;
     const x = margem.left + (slotW * (subIdx + 0.5));
-    // Para manter excelente visualização em telas de todos os tamanhos:
+    // Para manter excelente visualizaÃ§Ã£o em telas de todos os tamanhos:
     if (numDias > 15 && diaReal % 2 !== 0 && diaReal !== minIdx + 1 && diaReal !== maxIdx + 1) {
       return '';
     }
     return `<text x="${x.toFixed(1)}" y="${altura - 9}" fill="var(--ui-text-muted)" font-size="8.5px" font-weight="600" text-anchor="middle">${diaReal}</text>`;
   }).join('');
   
-  // Geração inteligente de ticks para o Eixo Y
+  // GeraÃ§Ã£o inteligente de ticks para o Eixo Y
   let ticks = [];
   if (modoGraficoIndicadores === 'valor') {
-    // Para valores financeiros, 5 divisões uniformes
+    // Para valores financeiros, 5 divisÃµes uniformes
     ticks = [0, 0.25, 0.5, 0.75, 1].map((pct) => pct * maxValor);
   } else {
     // Para quantidade de itens (inteiros)
     if (maxValor <= 4) {
-      // Se a quantidade máxima for pequena (ex: 2), cria ticks discretos inteiros (0, 1, 2)
+      // Se a quantidade mÃ¡xima for pequena (ex: 2), cria ticks discretos inteiros (0, 1, 2)
       for (let i = 0; i <= maxValor; i++) {
         ticks.push(i);
       }
     } else {
-      // Se for maior, cria 5 subdivisões inteiras arredondadas para cima para evitar decimais
+      // Se for maior, cria 5 subdivisÃµes inteiras arredondadas para cima para evitar decimais
       const passo = Math.ceil(maxValor / 4);
       for (let i = 0; i <= 4; i++) {
         ticks.push(Math.min(maxValor, i * passo));
@@ -4842,7 +5100,7 @@ function desenharGraficoUnificado(resumo) {
   `;
   
   container.innerHTML = `
-    <svg class="indicador-svg" viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Estatísticas diárias">
+    <svg class="indicador-svg" viewBox="0 0 ${largura} ${altura}" role="img" aria-label="EstatÃ­sticas diÃ¡rias">
       ${ticksHTML}
       ${barras}
       ${labelsX}
@@ -4893,7 +5151,7 @@ function renderizarGraficoHorariosIndicadores(container, resumo) {
 
     return `
       <rect x="${x.toFixed(1)}" y="${yFinal.toFixed(1)}" width="${barW.toFixed(1)}" height="${hFinal.toFixed(1)}" rx="7" fill="var(--ui-blue)"
-        data-tooltip-title="Atendimento às ${labelHora}:00"
+        data-tooltip-title="Atendimento Ã s ${labelHora}:00"
         data-tooltip-value="${valor} atendimento${valor !== 1 ? 's' : ''}"
         data-tooltip-detail="Pedidos processados entre ${labelHora}:00 e ${String(hora + 1).padStart(2, '0')}:00"
         data-tooltip-color="var(--ui-blue)">
@@ -4916,38 +5174,77 @@ function renderizarGraficoHorariosIndicadores(container, resumo) {
   `;
 }
 
-function renderizarGraficoMesesIndicadores(container, resumo) {
+function desenharBarrasAnoMes(container, valores, ano, escalaMaxima = null) {
   if (!container) return;
-  const valores = resumo.valoresPorMesAno;
-  if (!valores.some((valor) => valor > 0)) {
-    renderizarEmptyChart(container, 'Sem dados no ano selecionado');
-    return;
-  }
-
   const largura = 760;
-  const altura = 190;
-  const margem = { top: 14, right: 8, bottom: 30, left: 8 };
+  const altura = 230; // Aumentado para 230px
+  const margem = { top: 32, right: 8, bottom: 32, left: 8 };
   const plotW = largura - margem.left - margem.right;
   const plotH = altura - margem.top - margem.bottom;
-  const maxValor = Math.max(...valores, 1);
-  const passoX = plotW / Math.max(1, valores.length - 1);
-  const barW = Math.max(8, (plotW / valores.length) * 0.55);
+  const maxValor = Math.max(Number(escalaMaxima) || 0, ...valores.total, 1);
+  const barW = Math.max(8, (plotW / 12) * 0.55);
+  const innerPlotW = plotW - barW;
+  const passoX = innerPlotW / Math.max(1, 11);
   const labels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-  const barras = valores.map((valor, index) => {
-    const h = (valor / maxValor) * plotH;
-    const x = margem.left + (index * passoX) - (barW / 2);
-    const y = margem.top + plotH - h;
-    const labelX = margem.left + (index * passoX);
-    return `
-      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(1, h).toFixed(1)}" rx="7" fill="var(--ui-purple)"
-        data-tooltip-title="${['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][index]} de ${resumo?.limites?.ano || new Date().getFullYear()}"
-        data-tooltip-value="${formatarMoedaIndicador(valor)}"
-        data-tooltip-detail="Comissões geradas no mês acumulado"
-        data-tooltip-color="var(--ui-purple)">
-      </rect>
-      <text x="${labelX.toFixed(1)}" y="${altura - 9}" fill="var(--ui-text-muted)" font-size="var(--ui-font-xs)" font-weight="500" text-anchor="middle">${labels[index]}</text>
-    `;
+  const barras = Array.from({ length: 12 }, (_, index) => {
+    const vCPF = valores.cpf[index] || 0;
+    const vCNPJ = valores.cnpj[index] || 0;
+    const vVenda = valores.venda[index] || 0;
+    const totalMes = valores.total[index] || 0;
+
+    const hCPF = (vCPF / maxValor) * plotH;
+    const hCNPJ = (vCNPJ / maxValor) * plotH;
+    const hVenda = (vVenda / maxValor) * plotH;
+
+    const tooltipHtml = `
+      <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; min-width: 140px;">
+        <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px;">
+          <span style="color: var(--ui-text-muted); font-weight: 500;">e-CPF:</span>
+          <span style="color: var(--ui-blue); font-weight: 700;">${formatarMoedaIndicador(vCPF)}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px;">
+          <span style="color: var(--ui-text-muted); font-weight: 500;">e-CNPJ:</span>
+          <span style="color: var(--ui-orange); font-weight: 700;">${formatarMoedaIndicador(vCNPJ)}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px;">
+          <span style="color: var(--ui-text-muted); font-weight: 500;">Vendas:</span>
+          <span style="color: #10b981; font-weight: 700;">${formatarMoedaIndicador(vVenda)}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--ui-border);">
+          <span style="color: var(--ui-text); font-weight: 600;">Total do MÃªs:</span>
+          <span style="color: var(--ui-text); font-weight: 700;">${formatarMoedaIndicador(totalMes)}</span>
+        </div>
+      </div>
+    `.trim().replace(/\s+/g, ' ').replace(/"/g, '&quot;');
+
+    const activeBars = [];
+    if (vCPF > 0) activeBars.push({ fill: 'var(--ui-blue)', h: hCPF });
+    if (vCNPJ > 0) activeBars.push({ fill: 'var(--ui-orange)', h: hCNPJ });
+    if (vVenda > 0) activeBars.push({ fill: '#10b981', h: hVenda });
+
+    const x = margem.left + (index * passoX);
+    const labelX = x + (barW / 2);
+    let currentY = margem.top + plotH;
+    let paths = [];
+
+    activeBars.forEach((bar, bIdx) => {
+      const hFinal = Math.max(1, bar.h);
+      currentY -= hFinal;
+      const rxTop = (bIdx === activeBars.length - 1);
+      const rxBottom = (bIdx === 0);
+      const pathD = getRoundedBarPath(x, currentY, barW, hFinal, rxTop, rxBottom);
+      paths.push(`
+        <path d="${pathD}" fill="${bar.fill}"
+          data-tooltip-title="${['Janeiro', 'Fevereiro', 'MarÃ§o', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][index]} de ${ano}"
+          data-tooltip-html="${tooltipHtml}">
+        </path>
+      `);
+    });
+
+    paths.push(`<text x="${labelX.toFixed(1)}" y="${altura - 8}" fill="var(--ui-text-muted)" font-size="var(--ui-font-xs)" font-weight="500" text-anchor="middle">${labels[index]}</text>`);
+
+    return paths.join('');
   }).join('');
 
   const grid = [0, 0.5, 1].map((pct) => {
@@ -4956,12 +5253,162 @@ function renderizarGraficoMesesIndicadores(container, resumo) {
   }).join('');
 
   container.innerHTML = `
-    <svg class="indicador-svg" viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Comparativo mês a mês">
+    <svg class="indicador-svg" viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Comparativo mÃªs a mÃªs">
       ${grid}
       ${barras}
-      <text x="${margem.left}" y="10" fill="var(--ui-text)" font-size="var(--ui-font-sm)" font-weight="600">Total mensal</text>
+      <text x="${margem.left}" y="12" fill="var(--ui-text)" font-size="var(--ui-font-sm)" font-weight="600">Total mensal</text>
     </svg>
   `;
+}
+
+function renderizarGraficoMesesDinamico() {
+  const container = document.getElementById('indicadores-chart-meses');
+  if (!container) return;
+
+  const btnTodos = document.getElementById('btn-comp-todos-anos');
+  const mostrarTodos = btnTodos && btnTodos.classList.contains('active');
+
+  const descontoPercent = parseNumeroMonetario(document.getElementById('config-desc-total')?.value ?? '20');
+  const multiplicadorDesc = 1 - (descontoPercent / 100);
+
+  // Filtra pedidos aprovados
+  const pedidosAprovados = (indicadoresTodosPedidos || []).filter(p => p.status === 'aprovado');
+
+  // Coleta os anos a serem exibidos
+  let anosExibir = [];
+  if (mostrarTodos) {
+    anosExibir = Array.from(new Set(pedidosAprovados.map(p => p.ano).filter(Boolean))).sort((a, b) => a - b);
+    if (anosExibir.length === 0) {
+      anosExibir = [new Date().getFullYear()];
+    }
+  } else {
+    // Ano selecionado no input
+    const mesInput = document.getElementById('indicadores-mes');
+    const limites = obterLimitesMesIndicadores(mesInput?.value || obterMesAtualInput());
+    anosExibir = [limites.ano];
+  }
+
+  // Limpa o contÃªiner e inicializa a verificaÃ§Ã£o de dados
+  container.innerHTML = '';
+  let temDadosQualquerAno = false;
+
+  // Controla se exibe scrollbar com base no modo selecionado
+  if (mostrarTodos) {
+    container.style.setProperty('overflow-x', 'auto', 'important');
+  } else {
+    container.style.setProperty('overflow-x', 'hidden', 'important');
+  }
+
+  // Em "Todos os anos", usa uma escala unica para todas as colunas.
+  let escalaGlobalTodosAnos = null;
+  if (mostrarTodos) {
+    const totaisMensaisTodosAnos = [];
+    anosExibir.forEach((anoEscala) => {
+      const totaisMesAnoEscala = Array.from({ length: 12 }, () => 0);
+      const pedidosAnoEscala = pedidosAprovados.filter((p) => p.ano === anoEscala);
+
+      pedidosAnoEscala.forEach((pedido) => {
+        if (pedido.mes < 1 || pedido.mes > 12) return;
+
+        let valorVenda = 0;
+        if (ehVendaSim(pedido.venda)) {
+          const porcVenda = parseNumeroMonetario(document.getElementById('config-porc-venda')?.value ?? '10');
+          const precoCertificado = obterPrecoCertificado(pedido.raw);
+          valorVenda = precoCertificado * (porcVenda / 100);
+        }
+
+        const valorDescontado = pedido.valor * multiplicadorDesc;
+        totaisMesAnoEscala[pedido.mes - 1] += valorDescontado + valorVenda;
+      });
+
+      totaisMensaisTodosAnos.push(...totaisMesAnoEscala);
+    });
+
+    escalaGlobalTodosAnos = Math.max(1, ...totaisMensaisTodosAnos);
+  }
+
+  anosExibir.forEach(ano => {
+    // Calcula comissÃ£o mÃªs a mÃªs para o ano segmentando por categorias
+    const valoresCPF = Array.from({ length: 12 }, () => 0);
+    const valoresCNPJ = Array.from({ length: 12 }, () => 0);
+    const valoresVenda = Array.from({ length: 12 }, () => 0);
+    const valoresTotal = Array.from({ length: 12 }, () => 0);
+
+    const pedidosAno = pedidosAprovados.filter(p => p.ano === ano);
+
+    pedidosAno.forEach(pedido => {
+      if (pedido.mes >= 1 && pedido.mes <= 12) {
+        let valorVenda = 0;
+        if (ehVendaSim(pedido.venda)) {
+          const porcVenda = parseNumeroMonetario(document.getElementById('config-porc-venda')?.value ?? '10');
+          const precoCertificado = obterPrecoCertificado(pedido.raw);
+          valorVenda = precoCertificado * (porcVenda / 100);
+          valoresVenda[pedido.mes - 1] += valorVenda;
+        }
+        
+        const valorDescontado = pedido.valor * multiplicadorDesc;
+        const tipo = obterTipoCertificado(pedido.versao);
+        if (tipo === 'CNPJ') {
+          valoresCNPJ[pedido.mes - 1] += valorDescontado;
+        } else if (tipo === 'CPF') {
+          valoresCPF[pedido.mes - 1] += valorDescontado;
+        } else {
+          valoresCPF[pedido.mes - 1] += valorDescontado;
+        }
+
+        valoresTotal[pedido.mes - 1] += valorDescontado + valorVenda;
+      }
+    });
+
+    const totalAno = valoresTotal.reduce((a, b) => a + b, 0);
+
+    // Se "Todos" estiver selecionado, mantem todos os anos exibidos; apenas a escala do eixo Y e compartilhada
+    temDadosQualquerAno = true;
+
+    const anoRow = document.createElement('div');
+    anoRow.className = 'year-chart-column';
+    anoRow.style.padding = '4px 8px';
+
+    if (mostrarTodos) {
+      anoRow.style.flex = '0 0 760px';
+      anoRow.style.width = '760px';
+      anoRow.style.maxWidth = '760px';
+      anoRow.style.borderRight = '1px dashed rgba(255, 255, 255, 0.08)';
+      anoRow.style.paddingRight = '24px';
+    } else {
+      anoRow.style.flex = '1';
+      anoRow.style.width = '100%';
+      anoRow.style.maxWidth = '100%';
+      anoRow.style.borderRight = 'none';
+      anoRow.style.paddingRight = '8px';
+    }
+
+    anoRow.innerHTML = `
+      <div style="font-size: 11px; font-weight: 700; color: var(--ui-text-soft); padding: 4px 6px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid var(--ui-purple); padding-left: 8px;">
+        <span>ANO ${ano}</span>
+        <span style="color: var(--ui-purple); font-weight: 800;">${formatarMoedaIndicador(totalAno)}</span>
+      </div>
+      <div class="year-chart-bars-container" style="height: 230px; width: 100%;"></div>
+    `;
+
+    container.appendChild(anoRow);
+
+    const barsContainer = anoRow.querySelector('.year-chart-bars-container');
+    desenharBarrasAnoMes(
+      barsContainer,
+      { cpf: valoresCPF, cnpj: valoresCNPJ, venda: valoresVenda, total: valoresTotal },
+      ano,
+      escalaGlobalTodosAnos
+    );
+  });
+
+  if (!temDadosQualquerAno) {
+    renderizarEmptyChart(container, 'Sem dados acumulados para exibir');
+  }
+}
+
+function renderizarGraficoMesesIndicadores(container, resumo) {
+  renderizarGraficoMesesDinamico();
 }
 
 function renderizarDonutIndicadores(container, itens, cores) {
@@ -5012,7 +5459,7 @@ function renderizarDonutIndicadores(container, itens, cores) {
 function montarResumoIndicadores(pedidosMes, pedidosAno, limites) {
   const todosValidos = pedidosValidosIndicadores(pedidosMes);
   const aprovados = todosValidos.filter((pedido) => pedido.status === 'aprovado');
-  const validos = aprovados; // A análise deve ser estritamente de pedidos aprovados
+  const validos = aprovados; // A anÃ¡lise deve ser estritamente de pedidos aprovados
   
   const descontoPercent = parseNumeroMonetario(document.getElementById('config-desc-total')?.value ?? '20');
   const multiplicadorDesc = 1 - (descontoPercent / 100);
@@ -5040,7 +5487,7 @@ function montarResumoIndicadores(pedidosMes, pedidosAno, limites) {
         qtdPorDia[pedido.dia - 1] += 1;
         qtdPorDiaVenda[pedido.dia - 1] += 1;
         
-        // Comissão da venda (com base no preço do certificado completo)
+        // ComissÃ£o da venda (com base no preÃ§o do certificado completo)
         const porcVenda = parseNumeroMonetario(document.getElementById('config-porc-venda')?.value ?? '10');
         const precoCertificado = obterPrecoCertificado(pedido.raw);
         valorVenda = precoCertificado * (porcVenda / 100);
@@ -5061,7 +5508,8 @@ function montarResumoIndicadores(pedidosMes, pedidosAno, limites) {
         qtdPorDiaOutros[pedido.dia - 1] += 1;
       }
 
-      const semana = Math.min(5, Math.ceil(pedido.dia / 7));
+      const diaSemanaPrimeiro = new Date(limites.ano, limites.mes - 1, 1).getDay();
+      const semana = Math.min(5, Math.ceil((pedido.dia + diaSemanaPrimeiro) / 7));
       valoresPorSemana[semana] += valorDescontado + valorVenda;
     }
     const hora = Number(String(pedido.hora || '00:00').slice(0, 2)) || 0;
@@ -5132,15 +5580,15 @@ function renderizarStoryIndicadores(resumo, limites) {
 
   const tendenciaMeses = resumo.valoresPorMesAno[limites.mes - 1] - (resumo.valoresPorMesAno[limites.mes - 2] || 0);
   const tendenciaTexto = tendenciaMeses >= 0
-    ? `cresceu ${formatarMoedaIndicador(tendenciaMeses)} contra o mês anterior`
-    : `caiu ${formatarMoedaIndicador(Math.abs(tendenciaMeses))} contra o mês anterior`;
+    ? `cresceu ${formatarMoedaIndicador(tendenciaMeses)} contra o mÃªs anterior`
+    : `caiu ${formatarMoedaIndicador(Math.abs(tendenciaMeses))} contra o mÃªs anterior`;
 
   const itens = [
-    `<strong>Meta:</strong> ${pctMeta.toFixed(0)}% da meta mensal. ${faltaMeta > 0 ? `Faltam ${formatarMoedaIndicador(faltaMeta)}.` : 'Meta batida, agora é ampliar margem.'}`,
-    `<strong>Pico operacional:</strong> ${resumo.melhorHora !== '-' ? `${resumo.melhorHora} concentrou ${resumo.melhorHoraTotal} atendimentos.` : 'ainda não há horário dominante.'}`,
-    `<strong>Geografia:</strong> ${resumo.topUF ? `${resumo.topUF} lidera com ${resumo.topUFQtd} certificados.` : 'nenhum estado informado nos pedidos do período.'}`,
+    `<strong>Meta:</strong> ${pctMeta.toFixed(0)}% da meta mensal. ${faltaMeta > 0 ? `Faltam ${formatarMoedaIndicador(faltaMeta)}.` : 'Meta batida, agora Ã© ampliar margem.'}`,
+    `<strong>Pico operacional:</strong> ${resumo.melhorHora !== '-' ? `${resumo.melhorHora} concentrou ${resumo.melhorHoraTotal} atendimentos.` : 'ainda nÃ£o hÃ¡ horÃ¡rio dominante.'}`,
+    `<strong>Geografia:</strong> ${resumo.topUF ? `${resumo.topUF} lidera com ${resumo.topUFQtd} certificados.` : 'nenhum estado informado nos pedidos do perÃ­odo.'}`,
     `<strong>Comparativo:</strong> ${nomeMes} ${tendenciaTexto}.`,
-    `<strong>Melhor dia:</strong> ${resumo.melhorDiaLabel !== '-' ? `${resumo.melhorDiaLabel} gerou ${formatarMoedaIndicador(resumo.melhorDiaValor)}.` : 'sem produção registrada.'}`
+    `<strong>Melhor dia:</strong> ${resumo.melhorDiaLabel !== '-' ? `${resumo.melhorDiaLabel} gerou ${formatarMoedaIndicador(resumo.melhorDiaValor)}.` : 'sem produÃ§Ã£o registrada.'}`
   ];
 
   storyList.innerHTML = itens.map((item) => `<div class="story-item">${item}</div>`).join('');
@@ -5169,8 +5617,8 @@ function renderizarIndicadores(pedidosMes, pedidosAno, limites) {
   });
   const porAtendimento = agruparPorIndicador(resumo.validos, (pedido) => {
     if (pedido.modalidade.includes('pres')) return 'Presencial';
-    if (pedido.modalidade.includes('video') || pedido.modalidade.includes('vídeo')) return 'Vídeo';
-    return 'Não informado';
+    if (pedido.modalidade.includes('video') || pedido.modalidade.includes('vÃ­deo')) return 'VÃ­deo';
+    return 'NÃ£o informado';
   });
   const porVersao = agruparPorIndicador(resumo.validos, (pedido) => {
     const texto = pedido.versao.toUpperCase();
@@ -5186,6 +5634,89 @@ function renderizarIndicadores(pedidosMes, pedidosAno, limites) {
   renderizarDonutIndicadores(document.getElementById('indicadores-donut-status'), Array.from(porStatus.entries()).map(([label, valor]) => ({ label, valor })), ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981']);
 }
 
+function exibirSkeletonsIndicadores() {
+  const kpis = document.getElementById('indicadores-kpis');
+  const metas = document.getElementById('indicadores-meta-bars');
+  const chartDia = document.getElementById('indicadores-chart-dia');
+  const chartMeses = document.getElementById('indicadores-chart-meses');
+  const chartHorarios = document.getElementById('indicadores-chart-horarios');
+  const donutCert = document.getElementById('indicadores-donut-certificado');
+  const donutAtend = document.getElementById('indicadores-donut-atendimento');
+  const donutVersao = document.getElementById('indicadores-donut-versao');
+  const donutStatus = document.getElementById('indicadores-donut-status');
+  const storyList = document.getElementById('indicadores-story-list');
+
+  if (kpis) {
+    kpis.innerHTML = Array.from({ length: 4 }).map(() => `
+      <div class="indicador-kpi skeleton-kpi" style="--kpi-color: rgba(255, 255, 255, 0.08)">
+        <div class="skeleton-block skeleton-shimmer" style="width: 50%; height: 12px; margin-bottom: 8px;"></div>
+        <div class="skeleton-block skeleton-shimmer" style="width: 80%; height: 24px; margin-bottom: 8px;"></div>
+        <div class="skeleton-block skeleton-shimmer" style="width: 40%; height: 10px;"></div>
+      </div>
+    `).join('');
+  }
+
+  if (metas) {
+    metas.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; padding: 8px 0;">
+        ${Array.from({ length: 6 }).map(() => `
+          <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+            <div class="skeleton-block skeleton-shimmer" style="width: 70px; height: 12px; flex-shrink: 0;"></div>
+            <div class="skeleton-block skeleton-shimmer" style="flex: 1; height: 10px;"></div>
+            <div class="skeleton-block skeleton-shimmer" style="width: 50px; height: 12px; flex-shrink: 0;"></div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  const skeletonBarChart = `
+    <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; height: 100%; justify-content: flex-end; padding: 16px 12px 10px 12px; box-sizing: border-box;">
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; height: 130px; width: 100%; gap: 10px;">
+        ${Array.from({ length: 15 }).map((_, idx) => {
+          const heights = [30, 45, 60, 40, 75, 50, 65, 35, 80, 55, 70, 45, 60, 30, 50];
+          const h = heights[idx % heights.length];
+          return `<div class="skeleton-block skeleton-shimmer" style="width: 5%; height: ${h}%; border-radius: 4px;"></div>`;
+        }).join('')}
+      </div>
+      <div style="display: flex; justify-content: space-between; width: 100%; padding-top: 4px;">
+        ${Array.from({ length: 6 }).map(() => `<div class="skeleton-block skeleton-shimmer" style="width: 30px; height: 10px;"></div>`).join('')}
+      </div>
+    </div>
+  `;
+
+  if (chartDia) chartDia.innerHTML = skeletonBarChart;
+  if (chartMeses) chartMeses.innerHTML = skeletonBarChart;
+  if (chartHorarios) chartHorarios.innerHTML = skeletonBarChart;
+
+  const skeletonDonut = `
+    <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; gap: 16px; padding: 12px; box-sizing: border-box;">
+      <div class="skeleton-block skeleton-shimmer" style="width: 76px; height: 76px; border-radius: 50%; flex-shrink: 0;"></div>
+      <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
+        <div class="skeleton-block skeleton-shimmer" style="width: 80%; height: 10px;"></div>
+        <div class="skeleton-block skeleton-shimmer" style="width: 60%; height: 10px;"></div>
+        <div class="skeleton-block skeleton-shimmer" style="width: 70%; height: 10px;"></div>
+      </div>
+    </div>
+  `;
+
+  if (donutCert) donutCert.innerHTML = skeletonDonut;
+  if (donutAtend) donutAtend.innerHTML = skeletonDonut;
+  if (donutVersao) donutVersao.innerHTML = skeletonDonut;
+  if (donutStatus) donutStatus.innerHTML = skeletonDonut;
+
+  if (storyList) {
+    storyList.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 12px; padding: 10px; box-sizing: border-box; width: 100%;">
+        <div class="skeleton-block skeleton-shimmer" style="width: 95%; height: 12px;"></div>
+        <div class="skeleton-block skeleton-shimmer" style="width: 85%; height: 12px;"></div>
+        <div class="skeleton-block skeleton-shimmer" style="width: 90%; height: 12px;"></div>
+        <div class="skeleton-block skeleton-shimmer" style="width: 80%; height: 12px;"></div>
+      </div>
+    `;
+  }
+}
+
 async function carregarIndicadores() {
   if (indicadoresCarregando) return;
   indicadoresCarregando = true;
@@ -5197,37 +5728,42 @@ async function carregarIndicadores() {
   const atualizarBtn = document.getElementById('indicadores-atualizar');
   if (atualizarBtn) atualizarBtn.disabled = true;
 
+  exibirSkeletonsIndicadores();
+
   try {
-    // 1. Buscar os detalhes do mês selecionado
-    const resultadoMes = await window.electronAPI.buscarPedidos({
-      dataDe: limites.inicio,
-      dataAte: limites.fim,
-      usuario: currentUser?.email || undefined
-    });
-    const pedidosMes = (resultadoMes?.success ? resultadoMes.data || [] : []).map(mapearPedidoIndicador);
+    // Mesma origem da aba Consulta, com paginaÃ§Ã£o para incluir dados antigos.
+    const todosPedidos = [];
+    const tamanhoLote = 1000;
+    const maxPaginas = 200;
+    let offset = 0;
 
-    // 2. Buscar dados do ano inteiro de forma fatiada mês a mês em paralelo para evitar o limite de 1000 linhas do Supabase
-    const promisesAno = Array.from({ length: 12 }, (_, i) => {
-      const mesNum = i + 1;
-      const ultimoDia = new Date(limites.ano, mesNum, 0).getDate();
-      const inicioMes = `${limites.ano}-${String(mesNum).padStart(2, '0')}-01`;
-      const fimMes = `${limites.ano}-${String(mesNum).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
-      return window.electronAPI.buscarPedidos({
-        dataDe: inicioMes,
-        dataAte: fimMes,
-        usuario: currentUser?.email || undefined
+    for (let pagina = 0; pagina < maxPaginas; pagina += 1) {
+      const resultado = await window.electronAPI.buscarPedidos({
+        usuario: currentUser?.email || undefined,
+        limit: tamanhoLote,
+        offset
       });
-    });
 
-    const resultadosAno = await Promise.all(promisesAno);
-    const todosPedidosAno = [];
-    resultadosAno.forEach((res) => {
-      if (res && res.success && Array.isArray(res.data)) {
-        todosPedidosAno.push(...res.data);
+      if (!resultado?.success) {
+        throw new Error(resultado?.error || 'Falha ao buscar pedidos para indicadores');
       }
-    });
 
-    const pedidosAno = todosPedidosAno.map(mapearPedidoIndicador);
+      const lote = Array.isArray(resultado.data) ? resultado.data : [];
+      if (lote.length === 0) break;
+
+      todosPedidos.push(...lote);
+      if (lote.length < tamanhoLote) break;
+      offset += lote.length;
+    }
+
+    const todosMapped = todosPedidos.map(mapearPedidoIndicador);
+    const aprovadosMapped = todosMapped.filter((p) => p.status === 'aprovado');
+    indicadoresTodosPedidos = aprovadosMapped;
+
+    // Filtra em memÃ³ria os pedidos do mÃªs e do ano selecionado
+    const pedidosMes = aprovadosMapped.filter((p) => p.dataISO >= limites.inicio && p.dataISO <= limites.fim);
+    const pedidosAno = aprovadosMapped.filter((p) => p.ano === limites.ano);
+
     indicadoresUltimoSnapshot = { pedidosMes, pedidosAno, limites };
     renderizarIndicadores(pedidosMes, pedidosAno, limites);
   } catch (error) {
@@ -5270,7 +5806,22 @@ function inicializarIndicadores() {
   salvarMetaBtn?.addEventListener('click', salvarMetasIndicadores);
   atualizarBtn?.addEventListener('click', carregarIndicadores);
 
-  // Navegação do Seletor Mensal ("Slider")
+  const btnCompAnoSel = document.getElementById('btn-comp-ano-sel');
+  const btnCompTodosAnos = document.getElementById('btn-comp-todos-anos');
+  
+  btnCompAnoSel?.addEventListener('click', () => {
+    btnCompAnoSel.classList.add('active');
+    btnCompTodosAnos?.classList.remove('active');
+    renderizarGraficoMesesDinamico();
+  });
+
+  btnCompTodosAnos?.addEventListener('click', () => {
+    btnCompTodosAnos.classList.add('active');
+    btnCompAnoSel?.classList.remove('active');
+    renderizarGraficoMesesDinamico();
+  });
+
+  // NavegaÃ§Ã£o do Seletor Mensal ("Slider")
   const mesPrevBtn = document.getElementById('indicadores-mes-prev');
   const mesNextBtn = document.getElementById('indicadores-mes-next');
 
@@ -5292,7 +5843,7 @@ function inicializarIndicadores() {
     };
   }
 
-  // Inicializa o Tooltip Customizado para Gráficos
+  // Inicializa o Tooltip Customizado para GrÃ¡ficos
   let tooltip = document.getElementById('chart-tooltip');
   if (!tooltip) {
     tooltip = document.createElement('div');
@@ -5335,7 +5886,7 @@ function inicializarIndicadores() {
   document.body.onmousemove = (e) => {
     if (!tooltip.classList.contains('visible')) return;
     
-    // Margem de offset para não colar no ponteiro
+    // Margem de offset para nÃ£o colar no ponteiro
     tooltip.style.left = `${e.pageX}px`;
     tooltip.style.top = `${e.pageY}px`;
   };
@@ -5363,7 +5914,7 @@ function inicializarIndicadores() {
       const label = document.getElementById('indicador-label-dinamico');
       const subtitulo = document.getElementById('indicador-subtitulo-dinamico');
       if (label) label.textContent = 'VALORES POR DIA';
-      if (subtitulo) subtitulo.textContent = 'Linha do mês';
+      if (subtitulo) subtitulo.textContent = 'Linha do mÃªs';
       
       desenharGraficoUnificado(ultimoResumoIndicadores);
     });
@@ -5401,6 +5952,25 @@ const configPastaInput = document.getElementById('config-pasta');
 const configPastaClienteInput = document.getElementById('config-pasta-cliente');
 const configFolderBtn = document.getElementById('config-folder-btn');
 
+function atualizarTituloAbaPedidoAtiva(numeroPedidoInformado) {
+  const activeTab = pedidoTabs.find((t) => t.id === activePedidoTabId);
+  if (!activeTab) return;
+
+  const numeroPedido = String(
+    numeroPedidoInformado !== undefined
+      ? numeroPedidoInformado
+      : (pedidoNumeroInput?.value || '')
+  ).trim();
+
+  if (!activeTab.data) activeTab.data = {};
+  activeTab.data.pedido = numeroPedido;
+
+  const tabTitleEl = document.querySelector('.pedido-tab.active .tab-title');
+  if (tabTitleEl) {
+    tabTitleEl.textContent = numeroPedido || activeTab.number;
+  }
+}
+
 // =============================================
 // ANEXOS - dropzone, previews e gerenciamento
 // =============================================
@@ -5410,6 +5980,7 @@ const configFolderBtn = document.getElementById('config-folder-btn');
   const attachmentsInput = document.getElementById('attachments-input');
   const attachBtn = document.getElementById('attach-btn');
   const previewList = document.getElementById('preview-list');
+  const screenshotBtn = document.getElementById('pedido-screenshot-btn');
 
   console.log('Iniciando sistema de anexos...');
   console.log('Dropzone encontrado:', !!dropzone);
@@ -5433,7 +6004,7 @@ const configFolderBtn = document.getElementById('config-folder-btn');
         return currentUser;
       }
     } catch (error) {
-      console.error('Erro ao buscar usuÃ¡rio para anexo:', error);
+      console.error('Erro ao buscar usuÃƒÂ¡rio para anexo:', error);
     }
 
     try {
@@ -5443,7 +6014,7 @@ const configFolderBtn = document.getElementById('config-folder-btn');
         return currentUser;
       }
     } catch (error) {
-      console.error('Erro ao ler usuÃ¡rio salvo para anexo:', error);
+      console.error('Erro ao ler usuÃƒÂ¡rio salvo para anexo:', error);
     }
 
     return null;
@@ -5477,12 +6048,72 @@ const configFolderBtn = document.getElementById('config-folder-btn');
   });
 
   if (attachBtn) attachBtn.addEventListener('click', (e) => { 
-    console.log('BotÃ£o de anexar clicado');
+    console.log('BotÃƒÂ£o de anexar clicado');
     e.preventDefault(); 
-    e.stopPropagation(); // Evita clicar duas vezes (no botÃ£o e no dropzone pai)
+    e.stopPropagation(); // Evita clicar duas vezes (no botÃƒÂ£o e no dropzone pai)
     attachmentsInput.click(); 
   });
+  if (screenshotBtn) {
+    screenshotBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (screenshotBtn.disabled || screenshotBtn.classList.contains('capturing')) return;
 
+      const pedidoNumero = document.getElementById('pedido-numero-input')?.value?.trim();
+      const usuarioAnexo = await obterUsuarioAnexo();
+      const pastaCriada = document.getElementById('folder-pedido-btn')?.classList.contains('exists');
+
+      if (!pedidoNumero || !usuarioAnexo?.email || !pastaCriada) {
+        showCustomModal({
+          title: 'Pasta do pedido necessaria',
+          message: 'Crie a pasta do pedido antes de capturar um print.',
+          confirmText: 'Entendi',
+          hideCancel: true
+        });
+        return;
+      }
+
+      screenshotBtn.classList.add('capturing');
+      screenshotBtn.disabled = true;
+
+      try {
+        const resultado = await window.electronAPI.capturarPrintPedido({
+          usuario: usuarioAnexo.email,
+          pedido: pedidoNumero
+        });
+
+        if (resultado?.success) {
+          addAttachment({
+            name: resultado.fileName,
+            type: resultado.type || 'image/png',
+            path: resultado.path,
+            file: null
+          });
+          atualizarVisualPastaUsuario(true, resultado.rootPath);
+          atualizarVisualPastaCliente(resultado.clientPath || resultado.path);
+          atualizarVisualPastaPedido(true);
+        } else {
+          showCustomModal({
+            title: 'Erro ao Capturar Print',
+            message: resultado?.error || 'Nao foi possivel capturar a tela.',
+            confirmText: 'OK',
+            hideCancel: true
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao capturar print:', error);
+        showCustomModal({
+          title: 'Erro ao Capturar Print',
+          message: error.message || 'Erro inesperado ao capturar a tela.',
+          confirmText: 'OK',
+          hideCancel: true
+        });
+      } finally {
+        screenshotBtn.classList.remove('capturing');
+        atualizarVisualPastaPedido(true);
+      }
+    });
+  }
 
   attachmentsInput.addEventListener('change', (e) => { 
     console.log('Arquivo selecionado via input, arquivos:', e.target.files?.length);
@@ -5495,27 +6126,27 @@ const configFolderBtn = document.getElementById('config-folder-btn');
     console.log('Arquivos recebidos:', fileList?.length);
     
     const files = Array.from(fileList || []);
-    console.log('Arquivos apÃ³s Array.from:', files.length);
+    console.log('Arquivos apÃƒÂ³s Array.from:', files.length);
     
     const pedidoNumero = document.getElementById('pedido-numero-input')?.value?.trim();
-    console.log('Pedido nÃºmero:', pedidoNumero);
+    console.log('Pedido nÃƒÂºmero:', pedidoNumero);
     
     const usuarioAnexo = await obterUsuarioAnexo();
-    console.log('UsuÃ¡rio para anexo:', usuarioAnexo?.email);
+    console.log('UsuÃƒÂ¡rio para anexo:', usuarioAnexo?.email);
     
     if (!pedidoNumero || !usuarioAnexo?.email) {
-      console.log('Modo pendente ativado - pedido ou usuário nÃ£o disponí­vel');
-      // Se nÃ£o houver nÃºmero do pedido ou usuÃ¡rio, adiciona como anexo pendente
+      console.log('Modo pendente ativado - pedido ou usuÃ¡rio nÃƒÂ£o disponÃ­Â­vel');
+      // Se nÃƒÂ£o houver nÃƒÂºmero do pedido ou usuÃƒÂ¡rio, adiciona como anexo pendente
       for (const file of files) {
         console.log('Adicionando arquivo em modo pendente:', file.name);
         addAttachment({ name: file.name, type: file.type, file, pending: true });
       }
       renderAttachments();
 
-      // Informa o usuÃ¡rio que os arquivos ficaram em modo pendente
+      // Informa o usuÃƒÂ¡rio que os arquivos ficaram em modo pendente
       showCustomModal({
         title: 'Arquivos adicionados',
-        message: 'Os arquivos foram adicionados localmente. Informe o número do pedido e salve o pedido para gravá-los na pasta do pedido.',
+        message: 'Os arquivos foram adicionados localmente. Informe o nÃºmero do pedido e salve o pedido para gravÃ¡-los na pasta do pedido.',
         confirmText: 'Entendi',
         hideCancel: true
       });
@@ -5558,7 +6189,7 @@ const configFolderBtn = document.getElementById('config-folder-btn');
           console.error('Erro ao salvar anexo:', resultado?.error);
           showCustomModal({
             title: 'Erro ao Anexar',
-            message: 'Não foi possí­vel salvar o anexo: ' + (resultado?.error || 'erro desconhecido'),
+            message: 'NÃ£o foi possÃ­Â­vel salvar o anexo: ' + (resultado?.error || 'erro desconhecido'),
             confirmText: 'OK',
             hideCancel: true
           });
@@ -5595,7 +6226,7 @@ const configFolderBtn = document.getElementById('config-folder-btn');
     }
   }
 
-  // FunÃ§Ã£o para carregar anexos existentes da pasta
+  // FunÃƒÂ§ÃƒÂ£o para carregar anexos existentes da pasta
   window.carregarAnexosDaPasta = async function(pedidoNumero) {
     const usuarioAnexo = await obterUsuarioAnexo();
     if (!pedidoNumero || !usuarioAnexo?.email) return;
@@ -5672,7 +6303,7 @@ const configFolderBtn = document.getElementById('config-folder-btn');
 
       const info = document.createElement('div');
       info.className = 'preview-overlay-info';
-      // Tenta formatar a data se disponÃ­vel, senÃ£o usa o nome truncado
+      // Tenta formatar a data se disponÃƒÂ­vel, senÃƒÂ£o usa o nome truncado
       const hoje = new Date().toLocaleDateString('pt-BR');
       info.textContent = hoje;
 
@@ -5711,10 +6342,10 @@ const configFolderBtn = document.getElementById('config-folder-btn');
       removeBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         
-        // Se o arquivo jÃ¡ estÃ¡ no disco, tenta excluir
+        // Se o arquivo jÃƒÂ¡ estÃƒÂ¡ no disco, tenta excluir
         if (att.path) {
           try {
-            console.log('Solicitando exclusão de arquivo:', att.path);
+            console.log('Solicitando exclusÃ£o de arquivo:', att.path);
             const res = await window.electronAPI.excluirAnexoPedido({ filePath: att.path });
             if (!res.success) {
               console.error('Erro ao excluir arquivo :', res.error);
@@ -5829,13 +6460,13 @@ function showCustomModal({ title = 'Aviso', message = '', confirmText = 'Confirm
 
 window.showCustomModal = showCustomModal;
 
-// FunÃ§Ã£o para buscar usuÃ¡rio logado
+// FunÃƒÂ§ÃƒÂ£o para buscar usuÃƒÂ¡rio logado
 async function buscarUsuarioLogado() {
   try {
     const user = await window.electronAPI.getCurrentUser();
     if (user) {
       currentLoggedUser = user;
-      console.log('[debug] usuário atual para pastas:', currentLoggedUser.email);
+      console.log('[debug] usuÃ¡rio atual para pastas:', currentLoggedUser.email);
       atualizarStatusPastaPedido();
       atualizarStatusPastaUsuario();
       return;
@@ -5855,11 +6486,11 @@ async function buscarUsuarioLogado() {
       atualizarStatusPastaUsuario();
     }
   } catch (err) {
-    console.error('Erro ao buscar usuário logado:', err);
+    console.error('Erro ao buscar usuÃ¡rio logado:', err);
   }
 }
 
-// Inicializa busca do usuÃ¡rio
+// Inicializa busca do usuÃƒÂ¡rio
 buscarUsuarioLogado();
 
 
@@ -5869,8 +6500,8 @@ function atualizarVisualPastaUsuario(exists, path) {
   configFolderBtn.classList.toggle('exists', Boolean(exists));
   configFolderBtn.classList.toggle('missing', !exists);
   configFolderBtn.title = exists
-    ? 'Abrir pasta raiz do usuário'
-    : 'Pasta raiz do usuário não encontrada';
+    ? 'Abrir pasta raiz do usuÃ¡rio'
+    : 'Pasta raiz do usuÃ¡rio nÃ£o encontrada';
 
   if (configPastaInput && path) {
     configPastaInput.value = path;
@@ -5879,6 +6510,7 @@ function atualizarVisualPastaUsuario(exists, path) {
 
 function atualizarVisualPastaPedido(exists) {
   const dropzone = document.getElementById('dropzone');
+  const screenshotBtn = document.getElementById('pedido-screenshot-btn');
   const pedidoNumeroInput = document.getElementById('pedido-numero-input');
   const temPedido = Boolean(pedidoNumeroInput && pedidoNumeroInput.value.trim().length > 0);
 
@@ -5892,13 +6524,24 @@ function atualizarVisualPastaPedido(exists) {
       folderPedidoBtn.title = 'Abrir pasta do pedido';
     } else {
       folderPedidoBtn.classList.add('missing');
-      folderPedidoBtn.title = 'Criar pasta do pedido (AppData)';
+      if (!currentPedidoId) {
+        folderPedidoBtn.title = 'Salve o pedido antes de criar a pasta';
+      } else {
+        folderPedidoBtn.title = 'Criar pasta do pedido (AppData)';
+      }
       if (configPastaClienteInput) configPastaClienteInput.value = '';
     }
     void folderPedidoBtn.offsetWidth;
   }
 
-  dropzone?.classList.toggle('disabled', !temPedido);
+  dropzone?.classList.toggle('disabled', !Boolean(temPedido && exists));
+  if (screenshotBtn) {
+    const enabled = Boolean(temPedido && exists);
+    screenshotBtn.disabled = !enabled;
+    screenshotBtn.title = enabled
+      ? 'Capturar print da tela e anexar ao pedido'
+      : 'Crie a pasta do pedido para capturar um print';
+  }
 }
 
 function atualizarVisualPastaCliente(path) {
@@ -5925,12 +6568,12 @@ async function atualizarStatusPastaUsuario() {
 
     atualizarVisualPastaUsuario(resultado.exists, resultado.path);
   } catch (err) {
-    console.error('Erro ao verificar pasta do usuÃ¡rio:', err);
+    console.error('Erro ao verificar pasta do usuÃƒÂ¡rio:', err);
     atualizarVisualPastaUsuario(false);
   }
 }
 
-// FunÃ§Ã£o para atualizar visual do Ã­cone da pasta
+// FunÃƒÂ§ÃƒÂ£o para atualizar visual do ÃƒÂ­cone da pasta
 async function atualizarStatusPastaPedido() {
   const numeroPedido = pedidoNumeroInput?.value?.trim();
   const usuario = currentLoggedUser?.email || currentUser?.email;
@@ -5970,21 +6613,10 @@ async function atualizarStatusPastaPedido() {
 pedidoNumeroInput?.addEventListener('input', (e) => {
   clearTimeout(window.folderCheckTimeout);
   window.folderCheckTimeout = setTimeout(atualizarStatusPastaPedido, 500);
-
-  // Update tab title live
-  const activeTab = pedidoTabs.find(t => t.id === activePedidoTabId);
-  if (activeTab) {
-    const val = e.target.value.trim();
-    if (!activeTab.data) activeTab.data = {};
-    activeTab.data.pedido = val;
-    const tabTitleEl = document.querySelector('.pedido-tab.active .tab-title');
-    if (tabTitleEl) {
-      tabTitleEl.textContent = val || activeTab.number;
-    }
-  }
+  atualizarTituloAbaPedidoAtiva(e.target.value);
 });
 
-// O evento de clique do folderPedidoBtn estÃ¡ gerenciado pela funÃ§Ã£o __openPedidoFolder no index.html
+// O evento de clique do folderPedidoBtn estÃƒÂ¡ gerenciado pela funÃƒÂ§ÃƒÂ£o __openPedidoFolder no index.html
 
 
 // Inicializar listeners de status
@@ -6001,7 +6633,7 @@ function inicializarStatusListeners() {
   });
 }
 
-// Chamar inicializaÃ§Ã£o
+// Chamar inicializaÃƒÂ§ÃƒÂ£o
 setTimeout(inicializarStatusListeners, 1000);
 
 async function atualizarContadoresStatus() {
@@ -6014,7 +6646,7 @@ async function atualizarContadoresStatus() {
     });
     if (!resultado || !resultado.success) return;
 
-    const pedidos = resultado.data || [];
+    const pedidos = deduplicarPedidosMaisRecentes(resultado.data || []);
     
     // Contadores
     let counts = {
@@ -6034,13 +6666,13 @@ async function atualizarContadoresStatus() {
 
     container.innerHTML = `
       <div class="pedido-status-pills">
-        <span class="status-pill status-vid" title="Vídeo Realizada">
+        <span class="status-pill status-vid" title="VÃ­deo Realizada">
           <span class="status-pill-dot"></span>
-          VÍDEO <strong class="status-pill-val">${counts.video}</strong>
+          VÃDEO <strong class="status-pill-val">${counts.video}</strong>
         </span>
-        <span class="status-pill status-ver" title="Verificação">
+        <span class="status-pill status-ver" title="VerificaÃ§Ã£o">
           <span class="status-pill-dot"></span>
-          VERIFICAÇÃO <strong class="status-pill-val">${counts.verificacao}</strong>
+          VERIFICAÃ‡ÃƒO <strong class="status-pill-val">${counts.verificacao}</strong>
         </span>
       </div>
     `;
@@ -6049,4 +6681,5 @@ async function atualizarContadoresStatus() {
   }
 }
 window.atualizarContadoresStatus = atualizarContadoresStatus;
+
 

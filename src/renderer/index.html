@@ -18,7 +18,7 @@
     <div class="header">
       <h2>Companion</h2>
       <div class="controls">
-        <button id="lock-btn" class="control-btn" title="Fixar janela">
+        <button id="lock-btn" class="control-btn" title="Fixar janela" aria-label="Fixar janela">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
@@ -507,6 +507,13 @@
               </svg>
             </button>
           </div>
+          <button type="button" id="pedido-screenshot-btn" class="pedido-screenshot-btn" title="Crie a pasta do pedido para capturar um print" disabled>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            <span>Print</span>
+          </button>
           <div id="pedido-status-counts" class="pedido-status-counts"></div>
         </div>
 
@@ -719,9 +726,12 @@
                   <span class="indicador-label">MÊS A MÊS</span>
                   <h4>Comparativo do valor total</h4>
                 </div>
-                <span class="indicador-chip">Ano selecionado</span>
+                <div class="chart-toggle-container" id="indicadores-comparativo-toggle-container">
+                  <button type="button" class="chart-toggle-btn active" id="btn-comp-ano-sel">Ano Selecionado</button>
+                  <button type="button" class="chart-toggle-btn" id="btn-comp-todos-anos">Todos os Anos</button>
+                </div>
               </div>
-              <div class="chart-area compact" id="indicadores-chart-meses"></div>
+              <div class="chart-area compact" id="indicadores-chart-meses" style="overflow-x: auto !important; overflow-y: hidden !important; display: flex !important; flex-direction: row !important; gap: 24px !important; align-items: center !important; padding-bottom: 8px !important;"></div>
             </section>
           </div>
 
@@ -822,7 +832,7 @@
           <div class="form-grid-2">
             <div class="form-field">
               <label>E-MAIL</label>
-              <input type="email" class="input-dark" id="config-email" readonly>
+              <input type="email" class="input-dark" id="config-email">
             </div>
             <div class="form-field">
               <label>SENHA EMAIL</label>
@@ -847,9 +857,9 @@
           </div>
         </div>
 
-        <!-- Seção: Configurações App -->
+        <!-- Seção: Operacional -->
         <div class="section">
-          <div class="section-title">CONFIGURAÇÕES APP</div>
+          <div class="section-title">OPERACIONAL</div>
           <div class="form-field full">
             <label>DIRETORIO PASTA CLIENTE ATUAL</label>
             <input type="text" class="input-dark" id="config-pasta-cliente" readonly>
@@ -871,15 +881,40 @@
               <input type="text" class="input-dark" id="config-tela-cheia" value="4003 5596">
             </div>
           </div>
-          <div class="config-switch-row">
-            <div>
-              <label>CONSOLE</label>
-              <span>Habilitar console de desenvolvimento</span>
+        </div>
+
+        <!-- Seção: Configurações App -->
+        <div class="section">
+          <div class="section-title">CONFIGURAÇÕES APP</div>
+          <div class="config-app-stack">
+            <div class="config-opacity-card">
+              <div class="config-opacity-header">
+                <div>
+                  <label>OPACIDADE AO FICAR OCIOSA</label>
+                  <span>Quando a janela estiver fixada e o mouse sair dela.</span>
+                </div>
+                <div class="config-opacity-value">
+                  <input type="number" id="config-window-translucency-number" min="10" max="100" step="1" value="100" aria-label="Opacidade da janela fixada">
+                  <span>%</span>
+                </div>
+              </div>
+              <input type="range" class="config-opacity-range" id="config-window-translucency" min="10" max="100" step="1" value="100">
+              <div class="config-opacity-scale">
+                <span>10% quase invisível</span>
+                <strong id="config-window-translucency-label">100%</strong>
+                <span>100% normal</span>
+              </div>
             </div>
-            <label class="config-switch" for="config-console-enabled">
-              <input type="checkbox" id="config-console-enabled">
-              <span class="config-switch-track" aria-hidden="true"></span>
-            </label>
+            <div class="config-switch-row">
+              <div>
+                <label>CONSOLE</label>
+                <span>Habilitar console de desenvolvimento</span>
+              </div>
+              <label class="config-switch" for="config-console-enabled">
+                <input type="checkbox" id="config-console-enabled">
+                <span class="config-switch-track" aria-hidden="true"></span>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -956,6 +991,12 @@
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <line x1="12" y1="5" x2="12" y2="19"></line>
                     <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                </button>
+                <button type="button" id="config-cert-clear-btn" class="config-cert-clear-btn" title="Limpar campos">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20 20H7L3 16c-1-1-1-3 0-4l9-9c1-1 3-1 4 0l4 4c1 1 1 3 0 4L7 20"></path>
+                    <line x1="19" y1="11" x2="12" y2="4"></line>
                   </svg>
                 </button>
                 <button type="button" id="config-cert-delete-btn" class="config-cert-delete-btn is-hidden" title="Excluir certificado">
@@ -1085,6 +1126,15 @@
       if (input) input.value = folderPath || '';
     }
 
+    function setPedidoScreenshotState(enabled) {
+      const btn = document.getElementById('pedido-screenshot-btn');
+      if (!btn) return;
+      btn.disabled = !enabled;
+      btn.title = enabled
+        ? 'Capturar print da tela e anexar ao pedido'
+        : 'Crie a pasta do pedido para capturar um print';
+    }
+
     function setPedidoFolderState(exists, folderPath) {
       const btn = document.getElementById('folder-pedido-btn');
       const dropzone = document.getElementById('dropzone');
@@ -1112,6 +1162,7 @@
         dropzone.classList.toggle('disabled', !exists);
       }
 
+      setPedidoScreenshotState(Boolean(exists && temPedido));
       setConfigClientFolder(folderPath);
     }
 
@@ -1192,6 +1243,16 @@
         await customAppModal({
           title: 'Reinicie o App',
           message: 'API de pasta do pedido não carregada. Reinicie o app.',
+          confirmText: 'Entendido'
+        });
+        return;
+      }
+
+      const pedidoExistente = await window.electronAPI.buscarPedido?.(pedido);
+      if (!pedidoExistente?.success || !pedidoExistente?.data) {
+        await customAppModal({
+          title: 'Pedido ainda não criado',
+          message: 'Salve o pedido antes de criar a pasta.',
           confirmText: 'Entendido'
         });
         return;

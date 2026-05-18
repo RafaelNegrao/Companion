@@ -2,6 +2,8 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   toggleLock: (locked) => ipcRenderer.send('toggle-lock', locked),
+  setWindowIdleOpacity: (percentual) => ipcRenderer.send('set-window-idle-opacity', percentual),
+  setWindowPointerIdle: (idle) => ipcRenderer.send('set-window-pointer-idle', idle),
   closeApp: () => ipcRenderer.send('close-app'),
   expandWindow: () => ipcRenderer.send('expand-window'),
   collapseWindow: () => ipcRenderer.send('collapse-window'),
@@ -30,6 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   abrirPastaUsuario: (data) => ipcRenderer.invoke('abrir-pasta-usuario', data),
   salvarAnexoPedido: (data) => ipcRenderer.invoke('salvar-anexo-pedido', data),
   salvarAnexoPedidoComConteudo: (data) => ipcRenderer.invoke('salvar-anexo-pedido-conteudo', data),
+  capturarPrintPedido: (data) => ipcRenderer.invoke('capturar-print-pedido', data),
   listarAnexosPedido: (data) => ipcRenderer.invoke('listar-anexos-pedido', data),
   abrirArquivo: (filePath) => ipcRenderer.invoke('abrir-arquivo', filePath),
   excluirPastaPedido: (data) => ipcRenderer.invoke('excluir-pasta-pedido', data),

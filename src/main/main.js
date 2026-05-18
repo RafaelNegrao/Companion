@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, ipcMain, shell, safeStorage } = require('electron');
+const { app, BrowserWindow, screen, ipcMain, shell, safeStorage, desktopCapturer } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -11,25 +11,43 @@ let mainWindow;
 let loginWindow;
 let obsWindow;
 let isLocked = false;
+let isLockedPointerIdle = false;
+let lockedIdleOpacity = 1;
+let isCapturingScreenshot = false;
 let hideTimeout;
 let store;
 
-const TRIGGER_WIDTH = 50; // Largura da Ã¡rea de gatilho em pixels
+const TRIGGER_WIDTH = 50; // Largura da ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rea de gatilho em pixels
 const TRIGGER_HEIGHT = 80; // Altura da seta
-const ANIMATION_DURATION = 180; // DuraÃ§Ã£o da animaÃ§Ã£o em ms
-const ANIMATION_STEPS = 15; // NÃºmero de passos da animaÃ§Ã£o
+const ANIMATION_DURATION = 180; // DuraÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o da animaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o em ms
+const ANIMATION_STEPS = 15; // NÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºmero de passos da animaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o
 
-// FunÃ§Ã£o de easing (ease-out cubic)
+// FunÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o de easing (ease-out cubic)
 function easeOutCubic(t) {
   return 1 - Math.pow(1 - t, 3);
 }
 
-// FunÃ§Ã£o de easing (ease-in cubic)
+// FunÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o de easing (ease-in cubic)
 function easeInCubic(t) {
   return t * t * t;
 }
 
-// AnimaÃ§Ã£o de abrir janela (apenas slide horizontal + fade)
+function normalizarOpacidadePercentual(percentual) {
+  const valor = Number(percentual);
+  if (!Number.isFinite(valor)) return 1;
+  return Math.min(100, Math.max(10, valor)) / 100;
+}
+
+function aplicarOpacidadeJanelaPrincipal() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.setOpacity(isLocked && isLockedPointerIdle ? lockedIdleOpacity : 1);
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// AnimaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o de abrir janela (apenas slide horizontal + fade)
 function animateWindowOpen(window, targetBounds, callback) {
   if (!window || window.isDestroyed()) {
     if (callback) callback();
@@ -37,12 +55,12 @@ function animateWindowOpen(window, targetBounds, callback) {
   }
 
   const { width } = screen.getPrimaryDisplay().workAreaSize;
-  const startX = width + 50; // ComeÃ§a fora da tela
+  const startX = width + 50; // ComeÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§a fora da tela
 
   let step = 0;
   const interval = ANIMATION_DURATION / ANIMATION_STEPS;
 
-  // Define tamanho final imediatamente, sÃ³ anima posiÃ§Ã£o
+  // Define tamanho final imediatamente, sÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ anima posiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o
   window.setBounds({
     x: startX,
     y: targetBounds.y,
@@ -74,7 +92,7 @@ function animateWindowOpen(window, targetBounds, callback) {
   }, interval);
 }
 
-// AnimaÃ§Ã£o de fechar janela (apenas slide horizontal + fade)
+// AnimaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o de fechar janela (apenas slide horizontal + fade)
 function animateWindowClose(window, callback) {
   if (!window || window.isDestroyed()) {
     if (callback) callback();
@@ -112,9 +130,9 @@ function animateWindowClose(window, callback) {
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const TRIGGER_MARGIN = 10; // Margem do trigger em relaÃ§Ã£o Ã  borda
+  const TRIGGER_MARGIN = 10; // Margem do trigger em relaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  borda
   
-  // Cria janela escondida na borda direita (inicialmente sÃ³ mostra a seta)
+  // Cria janela escondida na borda direita (inicialmente sÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ mostra a seta)
   mainWindow = new BrowserWindow({
     width: TRIGGER_WIDTH,
     height: TRIGGER_HEIGHT,
@@ -140,7 +158,7 @@ function createWindow() {
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
   mainWindow.setVisibleOnAllWorkspaces(true);
   
-  // Mostra janela diretamente (trigger area nÃ£o precisa animaÃ§Ã£o)
+  // Mostra janela diretamente (trigger area nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o precisa animaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o)
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
@@ -148,10 +166,10 @@ function createWindow() {
 
 function expandWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const WINDOW_WIDTH = Math.floor(width * 0.4);
+  const WINDOW_WIDTH = Math.floor(width * 0.46);
   const MARGIN = 15; // Margem das bordas da tela
   
-  // Expande instantaneamente (sem animaÃ§Ã£o para evitar problemas de renderizaÃ§Ã£o)
+  // Expande instantaneamente (sem animaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o para evitar problemas de renderizaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o)
   mainWindow.setBounds({
     width: WINDOW_WIDTH,
     height: height - (MARGIN * 2),
@@ -166,7 +184,7 @@ function collapseWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   const TRIGGER_MARGIN = 10;
   
-  // Colapsa instantaneamente (sem animaÃ§Ã£o para evitar problemas de renderizaÃ§Ã£o)
+  // Colapsa instantaneamente (sem animaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o para evitar problemas de renderizaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o)
   mainWindow.setBounds({
     width: TRIGGER_WIDTH,
     height: TRIGGER_HEIGHT,
@@ -180,9 +198,18 @@ function collapseWindow() {
 // IPC para controlar o lock
 ipcMain.on('toggle-lock', (event, locked) => {
   isLocked = locked;
-  if (!locked) {
-    collapseWindow();
-  }
+  isLockedPointerIdle = false;
+  aplicarOpacidadeJanelaPrincipal();
+});
+
+ipcMain.on('set-window-idle-opacity', (event, percentual) => {
+  lockedIdleOpacity = normalizarOpacidadePercentual(percentual);
+  aplicarOpacidadeJanelaPrincipal();
+});
+
+ipcMain.on('set-window-pointer-idle', (event, idle) => {
+  isLockedPointerIdle = Boolean(idle);
+  aplicarOpacidadeJanelaPrincipal();
 });
 
 ipcMain.on('expand-window', () => {
@@ -193,8 +220,10 @@ ipcMain.on('expand-window', () => {
 });
 
 ipcMain.on('collapse-window', () => {
+  if (isCapturingScreenshot) return;
   if (!isLocked) {
     hideTimeout = setTimeout(() => {
+      if (isCapturingScreenshot) return;
       collapseWindow();
     }, 300);
   }
@@ -255,7 +284,7 @@ function createLoginWindow() {
   });
 }
 
-// Criar janela de observaÃ§Ãµes
+// Criar janela de observaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµes
 function createObsWindow() {
   if (obsWindow) {
     obsWindow.focus();
@@ -297,29 +326,29 @@ function createObsWindow() {
   });
 }
 
-// Handler para abrir janela de observaÃ§Ãµes
+// Handler para abrir janela de observaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµes
 ipcMain.on('open-obs-window', () => {
   createObsWindow();
 });
 
-// Handler para fechar janela de observaÃ§Ãµes
+// Handler para fechar janela de observaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµes
 ipcMain.on('close-obs-window', (event, content) => {
   if (obsWindow) {
     obsWindow.close();
     obsWindow = null;
   }
-  // Notifica a janela principal sobre o conteÃºdo
+  // Notifica a janela principal sobre o conteÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºdo
   if (mainWindow) {
     mainWindow.webContents.send('obs-content-updated', content);
   }
 });
 
 // Handler para login bem-sucedido
-let currentUser = null; // Armazena dados do usuÃ¡rio logado
+let currentUser = null; // Armazena dados do usuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio logado
 
 ipcMain.on('login-success', (event, userData) => {
   currentUser = sanitizeUser(userData) || userData; // Salva dados minimizados
-  console.log('UsuÃ¡rio logado:', currentUser);
+  console.log('UsuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio logado:', currentUser);
   
   if (loginWindow) {
     loginWindow.close();
@@ -328,7 +357,7 @@ ipcMain.on('login-success', (event, userData) => {
   createWindow();
 });
 
-// Handler para obter dados do usuÃ¡rio atual
+// Handler para obter dados do usuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio atual
 ipcMain.handle('get-current-user', async () => {
   return currentUser;
 });
@@ -415,7 +444,7 @@ ipcMain.handle('auth-login', async (event, { email, password }) => {
     const senha = String(password || '');
 
     if (!emailNorm || !senha) {
-      return { success: false, error: 'Credenciais invÃ¡lidas' };
+      return { success: false, error: 'Credenciais invÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lidas' };
     }
 
     const { data: usuario, error } = await crud.findOne('usuarios', {
@@ -424,8 +453,8 @@ ipcMain.handle('auth-login', async (event, { email, password }) => {
     });
 
     if (error) {
-      console.error('Erro ao autenticar usuÃ¡rio:', error);
-      return { success: false, error: 'Falha na autenticaÃ§Ã£o' };
+      console.error('Erro ao autenticar usuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio:', error);
+      return { success: false, error: 'Falha na autenticaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o' };
     }
 
     if (!usuario || !verifyPassword(senha, usuario.senha)) {
@@ -447,7 +476,7 @@ ipcMain.handle('auth-login', async (event, { email, password }) => {
     return { success: true, data: sanitizeUser(usuario) };
   } catch (err) {
     console.error('Erro inesperado no auth-login:', err);
-    return { success: false, error: 'Falha na autenticaÃ§Ã£o' };
+    return { success: false, error: 'Falha na autenticaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o' };
   }
 });
 
@@ -459,7 +488,7 @@ ipcMain.handle('auth-register', async (event, { nome, email, senha, privilegio =
     const privNorm = String(privilegio || 'usuario').trim().toLowerCase() || 'usuario';
 
     if (!nomeNorm || !emailNorm || !senhaNorm) {
-      return { success: false, error: 'Dados obrigatÃ³rios ausentes' };
+      return { success: false, error: 'Dados obrigatÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³rios ausentes' };
     }
 
     const { data: existente, error: erroBusca } = await crud.findOne('usuarios', {
@@ -469,11 +498,11 @@ ipcMain.handle('auth-register', async (event, { nome, email, senha, privilegio =
 
     if (erroBusca) {
       console.error('Erro ao verificar e-mail existente:', erroBusca);
-      return { success: false, error: 'Falha ao cadastrar usuÃ¡rio' };
+      return { success: false, error: 'Falha ao cadastrar usuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio' };
     }
 
     if (existente) {
-      return { success: false, error: 'Este email jÃ¡ estÃ¡ cadastrado' };
+      return { success: false, error: 'Este email jÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ cadastrado' };
     }
 
     const senhaHash = hashPassword(senhaNorm);
@@ -488,14 +517,14 @@ ipcMain.handle('auth-register', async (event, { nome, email, senha, privilegio =
       });
 
     if (erroInsert) {
-      console.error('Erro ao criar usuÃ¡rio:', erroInsert);
-      return { success: false, error: 'Falha ao cadastrar usuÃ¡rio' };
+      console.error('Erro ao criar usuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio:', erroInsert);
+      return { success: false, error: 'Falha ao cadastrar usuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio' };
     }
 
     return { success: true, data: sanitizeUser(novoUsuario) };
   } catch (err) {
     console.error('Erro inesperado no auth-register:', err);
-    return { success: false, error: 'Falha ao cadastrar usuÃ¡rio' };
+    return { success: false, error: 'Falha ao cadastrar usuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio' };
   }
 });
 
@@ -563,9 +592,16 @@ ipcMain.handle('get-app-version', () => {
 // Handler para buscar pedido no Supabase
 ipcMain.handle('buscar-pedido', async (event, numeroPedido) => {
   try {
+    const pedidoNumero = String(numeroPedido || '').trim();
+    const usuarioSessao = getUsuarioSessao();
+    const filtros = [{ column: 'pedido', op: 'eq', value: pedidoNumero }];
+    if (usuarioSessao) {
+      filtros.push({ column: 'usuario', op: 'eq', value: usuarioSessao });
+    }
+
     const { data, error } = await crud.select('pedidos', {
       columns: '*',
-      filters: { pedido: numeroPedido },
+      filters: filtros,
       order: { column: 'id', ascending: false },
       limit: 1
     });
@@ -577,7 +613,7 @@ ipcMain.handle('buscar-pedido', async (event, numeroPedido) => {
 
     const pedido = data?.[0] || null;
     if (!pedido) {
-      console.log('Pedido nÃ£o encontrado:', numeroPedido);
+      console.log('Pedido nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o encontrado:', numeroPedido);
       return { success: true, data: null };
     }
 
@@ -607,7 +643,7 @@ ipcMain.handle('buscar-pedido', async (event, numeroPedido) => {
 // Handler para buscar pessoa por CPF no Supabase
 ipcMain.handle('buscar-por-cpf', async (event, cpf) => {
   try {
-    console.log('ðŸ” Buscando CPF no banco:', cpf);
+    console.log('ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Buscando CPF no banco:', cpf);
     
     const { data, error } = await crud.select('pedidos', {
       columns: 'nome, nascimento, email, telefone, mae',
@@ -626,7 +662,7 @@ ipcMain.handle('buscar-por-cpf', async (event, cpf) => {
       return { success: true, data: null };
     }
 
-    console.log('âœ… Dados encontrados para CPF:', data[0]);
+    console.log('ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Dados encontrados para CPF:', data[0]);
     return { success: true, data: data[0] };
   } catch (err) {
     console.error('Erro na busca por CPF:', err);
@@ -637,9 +673,32 @@ ipcMain.handle('buscar-por-cpf', async (event, cpf) => {
 // Handler para salvar/atualizar pedido no Supabase
 ipcMain.handle('salvar-pedido', async (event, pedidoData) => {
   try {
+    const pedidoNumero = String(pedidoData?.pedido || '').trim();
+    if (!pedidoNumero) {
+      return { success: false, error: 'NÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºmero do pedido ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© obrigatÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³rio.' };
+    }
+
+    const usuarioPedido = getUsuarioSessao(pedidoData?.usuario);
+    if (!usuarioPedido) {
+      return { success: false, error: 'UsuÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rio nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o identificado para salvar o pedido.' };
+    }
+
+    const payload = {
+      ...pedidoData,
+      pedido: pedidoNumero,
+      usuario: usuarioPedido
+    };
+    delete payload.id;
+
+    const filtrosExistencia = [
+      { column: 'pedido', op: 'eq', value: pedidoNumero },
+      { column: 'usuario', op: 'eq', value: usuarioPedido }
+    ];
+
     const { data: existente, error: existeError } = await crud.select('pedidos', {
       columns: 'id',
-      filters: { pedido: pedidoData.pedido },
+      filters: filtrosExistencia,
+      order: { column: 'id', ascending: false },
       limit: 1
     });
 
@@ -651,15 +710,21 @@ ipcMain.handle('salvar-pedido', async (event, pedidoData) => {
     let data, error;
     
     if (existente && existente.length > 0) {
-      pedidoData.id = existente[0].id;
-      const result = await crud.update('pedidos', pedidoData, {
-        filters: { id: pedidoData.id },
-        single: true
+      const idExistente = existente[0].id;
+      const filters = [{ column: 'usuario', op: 'eq', value: usuarioPedido }];
+      if (idExistente) {
+        filters.push({ column: 'id', op: 'eq', value: idExistente });
+      } else {
+        filters.push({ column: 'pedido', op: 'eq', value: pedidoNumero });
+      }
+      const result = await crud.update('pedidos', payload, {
+        filters: filters,
+        single: false
       });
-      data = result.data;
+      data = Array.isArray(result.data) && result.data.length > 0 ? result.data[0] : result.data;
       error = result.error;
     } else {
-      const result = await crud.insert('pedidos', pedidoData, {
+      const result = await crud.insert('pedidos', payload, {
         single: true
       });
       data = result.data;
@@ -706,7 +771,7 @@ ipcMain.handle('salvar-certificado', async (event, certificado) => {
     const valor = Number.isFinite(valorNumerico) ? valorNumerico : 0;
 
     if (!nome) {
-      return { success: false, error: 'Nome do certificado Ã© obrigatÃ³rio.' };
+      return { success: false, error: 'Nome do certificado ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© obrigatÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³rio.' };
     }
 
     const { data: existente, error: erroBusca } = await crud.findOne('certificados', {
@@ -749,12 +814,12 @@ ipcMain.handle('salvar-certificado', async (event, certificado) => {
   }
 });
 
-// Handler para buscar configuraÃ§Ãµes do Supabase
+// Handler para buscar configuraÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµes do Supabase
 ipcMain.handle('excluir-certificado', async (event, nomeCertificado) => {
   try {
     const nome = String(nomeCertificado || '').trim();
     if (!nome) {
-      return { success: false, error: 'Nome do certificado Ã© obrigatÃ³rio.' };
+      return { success: false, error: 'Nome do certificado ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© obrigatÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³rio.' };
     }
 
     const { error } = await crud.remove('certificados', {
@@ -778,7 +843,7 @@ ipcMain.handle('buscar-configuracoes', async (event, usuario) => {
     const usuarioSessao = getUsuarioSessao(usuario);
 
     if (!usuarioSessao) {
-      return { success: false, error: 'UsuÃ¡rio logado nÃ£o encontrado' };
+      return { success: false, error: 'UsuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio logado nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o encontrado' };
     }
 
     const usuarioFiltro = currentUser?.id
@@ -791,7 +856,7 @@ ipcMain.handle('buscar-configuracoes', async (event, usuario) => {
     });
 
     if (usuarioError) {
-      console.error('Erro ao buscar usuÃ¡rio:', usuarioError);
+      console.error('Erro ao buscar usuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio:', usuarioError);
       return { success: false, error: usuarioError.message };
     }
 
@@ -803,7 +868,7 @@ ipcMain.handle('buscar-configuracoes', async (event, usuario) => {
     });
 
     if (error) {
-      console.error('Erro ao buscar configuraÃ§Ãµes:', error);
+      console.error('Erro ao buscar configuraÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµes:', error);
       return { success: false, error: error.message };
     }
 
@@ -818,19 +883,19 @@ ipcMain.handle('buscar-configuracoes', async (event, usuario) => {
       }
     };
   } catch (err) {
-    console.error('Erro na busca de configuraÃ§Ãµes:', err);
+    console.error('Erro na busca de configuraÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµes:', err);
     return { success: false, error: err.message };
   }
 });
 
-// Handler para salvar configuraÃ§Ãµes no Supabase
+// Handler para salvar configuraÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµes no Supabase
 ipcMain.handle('salvar-configuracoes', async (event, config) => {
   try {
     const usuarioSessao = getUsuarioSessao();
     const usuarioConfig = config?.usuario?.trim() || usuarioSessao;
 
     if (!usuarioSessao || !usuarioConfig) {
-      return { success: false, error: 'UsuÃ¡rio logado nÃ£o encontrado' };
+      return { success: false, error: 'UsuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio logado nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o encontrado' };
     }
 
     const senhaLogin = String(config?.senha || '').trim();
@@ -851,7 +916,7 @@ ipcMain.handle('salvar-configuracoes', async (event, config) => {
     });
 
     if (usuarioError) {
-      console.error('Erro ao atualizar usuÃ¡rio:', usuarioError);
+      console.error('Erro ao atualizar usuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio:', usuarioError);
       return { success: false, error: usuarioError.message };
     }
 
@@ -872,13 +937,13 @@ ipcMain.handle('salvar-configuracoes', async (event, config) => {
     });
 
     if (error) {
-      console.error('Erro ao salvar configuraÃ§Ãµes:', error);
+      console.error('Erro ao salvar configuraÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµes:', error);
       return { success: false, error: error.message };
     }
 
     return { success: true, data };
   } catch (err) {
-    console.error('Erro ao salvar configuraÃ§Ãµes:', err);
+    console.error('Erro ao salvar configuraÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âµes:', err);
     return { success: false, error: err.message };
   }
 });
@@ -888,7 +953,7 @@ ipcMain.handle('buscar-pedidos', async (event, filtros = {}) => {
   try {
     const filters = [];
 
-    // Normaliza uma data (YYYY-MM-DD) para o inÃ­cio do dia em UTC
+    // Normaliza uma data (YYYY-MM-DD) para o inÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­cio do dia em UTC
     const normalizarInicioDia = (data) => {
       if (!data) return null;
       const s = String(data).trim().slice(0, 10); // garante apenas YYYY-MM-DD
@@ -922,7 +987,12 @@ ipcMain.handle('buscar-pedidos', async (event, filtros = {}) => {
     const { data, error } = await crud.select('pedidos', {
       columns: '*',
       filters,
-      order: { column: 'data', ascending: false }
+      order: [
+        { column: 'data', ascending: false },
+        { column: 'id', ascending: false }
+      ],
+      limit: filtros.limit || 10000,
+      offset: Number.isInteger(filtros.offset) ? filtros.offset : undefined
     });
 
     if (error) {
@@ -985,14 +1055,22 @@ async function salvarCaminhosPedidoNoBanco({ usuario, pedido, pastaRaiz, pastaCl
 
     let data, error;
     if (existente && existente.length > 0) {
-      payload.id = existente[0].id;
+      const updateFilters = [];
+      if (existente[0].id) {
+        payload.id = existente[0].id;
+        updateFilters.push({ column: 'id', op: 'eq', value: payload.id });
+      } else {
+        updateFilters.push({ column: 'pedido', op: 'eq', value: pedido });
+      }
+      
       const result = await crud.update('pedidos', payload, {
-        filters: { id: payload.id },
-        single: true
+        filters: updateFilters,
+        single: false
       });
-      data = result.data;
+      data = result.data && result.data.length > 0 ? result.data[0] : result.data;
       error = result.error;
     } else {
+      return { success: false, error: 'Salve o pedido antes de criar a pasta ou salvar anexos.' };
       const result = await crud.insert('pedidos', payload, {
         single: true
       });
@@ -1025,16 +1103,33 @@ ipcMain.handle('verificar-pasta-pedido', async (event, { usuario, pedido }) => {
 
     pastaCliente = data?.[0]?.pasta || pastaCliente;
   } catch (error) {
-    console.error('Erro ao buscar pasta salva para verificaÃƒÂ§ÃƒÂ£o:', error);
+    console.error('Erro ao buscar pasta salva para verificaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o:', error);
   }
 
   return fs.existsSync(pastaCliente);
 });
 
 ipcMain.handle('criar-pasta-pedido', async (event, { usuario, pedido }) => {
-  if (!usuario || !pedido) return { success: false, error: 'UsuÃ¡rio ou pedido nÃ£o informado' };
+  if (!usuario || !pedido) return { success: false, error: 'UsuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio ou pedido nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o informado' };
   
   try {
+    const filtrosPedido = [{ column: 'pedido', op: 'eq', value: String(pedido).trim() }];
+    filtrosPedido.push({ column: 'usuario', op: 'eq', value: String(usuario).trim() });
+
+    const { data: pedidoExistente, error: erroPedidoExistente } = await crud.select('pedidos', {
+      columns: 'id',
+      filters: filtrosPedido,
+      limit: 1
+    });
+
+    if (erroPedidoExistente) {
+      return { success: false, error: erroPedidoExistente.message };
+    }
+
+    if (!pedidoExistente?.length) {
+      return { success: false, error: 'Salve o pedido antes de criar a pasta.' };
+    }
+
     const { pastaRaiz, pastaCliente } = criarPastaClientePedido(usuario, pedido);
     const dbResult = await salvarCaminhosPedidoNoBanco({ usuario, pedido, pastaRaiz, pastaCliente });
 
@@ -1085,7 +1180,7 @@ ipcMain.handle('abrir-pasta-pedido', async (event, { usuario, pedido }) => {
 });
 
 ipcMain.handle('obter-pasta-pedido', async (event, { usuario, pedido }) => {
-  if (!usuario || !pedido) return { success: false, error: 'UsuÃ¡rio ou pedido nÃ£o informado' };
+  if (!usuario || !pedido) return { success: false, error: 'UsuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio ou pedido nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o informado' };
 
   let pastaRaiz = getPastaRaizUsuario(usuario);
   let pastaCliente = getPastaClientePedido(usuario, pedido);
@@ -1115,7 +1210,7 @@ ipcMain.handle('obter-pasta-pedido', async (event, { usuario, pedido }) => {
 });
 
 ipcMain.handle('obter-pasta-usuario', async (event, { usuario }) => {
-  if (!usuario) return { success: false, error: 'UsuÃ¡rio nÃ£o informado' };
+  if (!usuario) return { success: false, error: 'UsuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o informado' };
 
   const baseDir = getPastaRaizUsuario(usuario);
   return {
@@ -1126,7 +1221,7 @@ ipcMain.handle('obter-pasta-usuario', async (event, { usuario }) => {
 });
 
 ipcMain.handle('abrir-pasta-usuario', async (event, { usuario }) => {
-  if (!usuario) return { success: false, error: 'UsuÃ¡rio nÃ£o informado' };
+  if (!usuario) return { success: false, error: 'UsuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o informado' };
 
   try {
     const baseDir = criarPastaRaizUsuario(usuario);
@@ -1138,7 +1233,7 @@ ipcMain.handle('abrir-pasta-usuario', async (event, { usuario }) => {
       error: errorMessage || null
     };
   } catch (error) {
-    console.error('Erro ao criar pasta do usuÃ¡rio:', error);
+    console.error('Erro ao criar pasta do usuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡rio:', error);
     return { success: false, exists: false, path: getPastaRaizUsuario(usuario), error: error.message };
   }
 });
@@ -1147,6 +1242,15 @@ ipcMain.handle('salvar-anexo-pedido', async (event, { usuario, pedido, filePath,
   if (!usuario || !pedido || !filePath) return { success: false, error: 'Dados incompletos' };
   
   try {
+    const { data: pedidoExistente } = await crud.select('pedidos', {
+      columns: 'id',
+      filters: { pedido },
+      limit: 1
+    });
+
+    if (!pedidoExistente?.length) {
+      return { success: false, error: 'Salve o pedido antes de salvar anexos.' };
+    }
     const { pastaRaiz, pastaCliente: baseDir } = criarPastaClientePedido(usuario, pedido);
     const dbResult = await salvarCaminhosPedidoNoBanco({
       usuario,
@@ -1174,11 +1278,20 @@ ipcMain.handle('salvar-anexo-pedido', async (event, { usuario, pedido, filePath,
   }
 });
 
-// Nova funÃ§Ã£o que aceita conteÃºdo de arquivo como Buffer
+// Nova funÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o que aceita conteÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºdo de arquivo como Buffer
 ipcMain.handle('salvar-anexo-pedido-conteudo', async (event, { usuario, pedido, fileName, conteudo }) => {
   if (!usuario || !pedido || !fileName) return { success: false, error: 'Dados incompletos' };
   
   try {
+    const { data: pedidoExistente } = await crud.select('pedidos', {
+      columns: 'id',
+      filters: { pedido },
+      limit: 1
+    });
+
+    if (!pedidoExistente?.length) {
+      return { success: false, error: 'Salve o pedido antes de salvar anexos.' };
+    }
     const { pastaRaiz, pastaCliente: baseDir } = criarPastaClientePedido(usuario, pedido);
     const dbResult = await salvarCaminhosPedidoNoBanco({
       usuario,
@@ -1210,7 +1323,7 @@ ipcMain.handle('salvar-anexo-pedido-conteudo', async (event, { usuario, pedido, 
       clientPath: baseDir
     };
   } catch (error) {
-    console.error('Erro ao salvar anexo com conteÃºdo:', error);
+    console.error('Erro ao salvar anexo com conteÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºdo:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1247,15 +1360,107 @@ ipcMain.handle('listar-anexos-pedido', async (event, { usuario, pedido }) => {
   }
 });
 
+ipcMain.handle('capturar-print-pedido', async (event, { usuario, pedido }) => {
+  if (!usuario || !pedido) return { success: false, error: 'UsuÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rio ou pedido nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o informado' };
+
+  let pastaRaiz = getPastaRaizUsuario(usuario);
+  let baseDir = getPastaClientePedido(usuario, pedido);
+
+  try {
+    const { data } = await crud.select('pedidos', {
+      columns: 'diretorio, pasta',
+      filters: { pedido },
+      limit: 1
+    });
+
+    const pedidoDb = data?.[0];
+    pastaRaiz = pedidoDb?.diretorio || pastaRaiz;
+    baseDir = pedidoDb?.pasta || baseDir;
+  } catch (error) {
+    console.error('Erro ao buscar pasta salva para print:', error);
+  }
+
+  if (!fs.existsSync(baseDir)) {
+    return { success: false, error: 'A pasta do pedido precisa estar criada antes de capturar o print.' };
+  }
+
+  const captureWindow = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  const shouldHideWindow = captureWindow && !captureWindow.isDestroyed() && captureWindow.isVisible();
+  const previousOpacity = shouldHideWindow ? captureWindow.getOpacity() : 1;
+
+  try {
+    isCapturingScreenshot = true;
+    if (shouldHideWindow) {
+      captureWindow.setOpacity(0);
+      captureWindow.hide();
+      await wait(180);
+    }
+
+    const display = screen.getPrimaryDisplay();
+    const scaleFactor = display.scaleFactor || 1;
+    const captureSize = {
+      width: Math.round(display.size.width * scaleFactor),
+      height: Math.round(display.size.height * scaleFactor)
+    };
+
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: captureSize
+    });
+
+    const source = sources.find((item) => String(item.display_id) === String(display.id)) || sources[0];
+    if (!source || source.thumbnail.isEmpty()) {
+      return { success: false, error: 'NÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o foi possÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­vel capturar a tela.' };
+    }
+
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, '-')
+      .replace('T', '_')
+      .slice(0, 19);
+    const safePedido = String(pedido).replace(/[<>:"/\\|?*\x00-\x1F]/g, '-').slice(0, 80) || 'pedido';
+    let fileName = `print-${safePedido}-${timestamp}.png`;
+    let destPath = path.join(baseDir, fileName);
+    let tentativa = 1;
+
+    while (fs.existsSync(destPath)) {
+      fileName = `print-${safePedido}-${timestamp}-${tentativa}.png`;
+      destPath = path.join(baseDir, fileName);
+      tentativa++;
+    }
+
+    fs.writeFileSync(destPath, source.thumbnail.toPNG());
+
+    return {
+      success: true,
+      fileName,
+      path: destPath,
+      rootPath: pastaRaiz,
+      clientPath: baseDir,
+      type: 'image/png'
+    };
+  } catch (error) {
+    console.error('Erro ao capturar print:', error);
+    return { success: false, error: error.message };
+  } finally {
+    if (shouldHideWindow && captureWindow && !captureWindow.isDestroyed()) {
+      captureWindow.show();
+      captureWindow.setOpacity(previousOpacity || 1);
+      captureWindow.focus();
+    }
+    isCapturingScreenshot = false;
+  }
+});
+
 ipcMain.handle('excluir-anexo-pedido', async (event, { filePath }) => {
-  if (!filePath) return { success: false, error: 'Caminho do arquivo nÃ£o informado' };
+  if (!filePath) return { success: false, error: 'Caminho do arquivo nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o informado' };
   
   try {
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
       return { success: true };
     }
-    return { success: false, error: 'Arquivo nÃ£o encontrado no disco' };
+    return { success: false, error: 'Arquivo nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o encontrado no disco' };
   } catch (error) {
     console.error('Erro ao excluir arquivo:', error);
     return { success: false, error: error.message };
@@ -1271,7 +1476,7 @@ ipcMain.handle('excluir-pasta-pedido', async (event, { usuario, pedido }) => {
       fs.rmSync(baseDir, { recursive: true, force: true });
       return { success: true };
     }
-    return { success: true, message: 'Pasta nÃ£o existia' };
+    return { success: true, message: 'Pasta nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o existia' };
   } catch (error) {
     console.error('Erro ao excluir pasta:', error);
     return { success: false, error: error.message };
@@ -1292,7 +1497,7 @@ ipcMain.handle('abrir-arquivo', async (event, filePath) => {
 app.whenReady().then(async () => {
   store = new Store();
 
-  // Limpa silenciosamente executáveis .old remanescentes de atualizações anteriores
+  // Limpa silenciosamente executÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡veis .old remanescentes de atualizaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âµes anteriores
   try {
     const oldExePath = process.execPath + '.old';
     if (fs.existsSync(oldExePath)) {
@@ -1302,11 +1507,11 @@ app.whenReady().then(async () => {
     // Falha silenciosa se o arquivo ainda estiver sendo indexado/sincronizado pelo OneDrive
   }
 
-  // Inicializa a verificação e gerenciamento de atualizações automáticas
+  // Inicializa a verificaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o e gerenciamento de atualizaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âµes automÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ticas
   const updater = new AppUpdater(packageJson.version, 'RafaelNegrao', 'Companion');
   const temAtualizacao = await updater.checkForUpdates();
 
-  // Se NÃO houver atualização pendente, inicia a tela de login normalmente
+  // Se NÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢O houver atualizaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o pendente, inicia a tela de login normalmente
   if (!temAtualizacao) {
     createLoginWindow();
   }
@@ -1323,5 +1528,7 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+
 
 
