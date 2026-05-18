@@ -928,7 +928,7 @@ body.expanded #main-content {
   border-radius: 12px;
 }
 
-/* SeÃƒÂ§ÃƒÂµes de Documentos */
+/* Seções de Documentos */
 .doc-section {
   margin-bottom: 24px;
   padding-bottom: 16px;
@@ -2098,7 +2098,7 @@ body.expanded #main-content {
   border-radius: 14px;
 }
 
-/* BalÃƒÂ£o de Pedido na Timeline */
+/* Balão de Pedido na Timeline */
 .timeline-pedido {
   position: absolute;
   top: 50%;
@@ -2379,7 +2379,7 @@ body.expanded #main-content {
   background: linear-gradient(180deg, #86868b 0%, rgba(134, 134, 139, 0.3) 100%);
 }
 
-/* BalÃƒÂ£o do dia */
+/* Balão do dia */
 .day-balloon {
   min-width: 50px;
   padding: 8px 12px;
@@ -2528,7 +2528,7 @@ body.expanded #main-content {
   font-style: italic;
 }
 
-/* AnimaÃƒÂ§ÃƒÂ£o de loading para ÃƒÂ­cone do CNPJ */
+/* Animação de loading para ícone do CNPJ */
 @keyframes spin {
   from {
     transform: rotate(0deg);
@@ -3025,7 +3025,7 @@ body.expanded #main-content {
 
 
 
-/* ESTILOS DE SEÃ‡ÃƒO - PADRONIZADOS */
+/* ESTILOS DE SEÇÃO - PADRONIZADOS */
 .doc-section {
   margin-bottom: 12px !important;
   padding: 16px 20px !important;

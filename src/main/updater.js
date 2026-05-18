@@ -5,8 +5,8 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 /**
- * AppUpdater - Gerencia a verificaÃ§Ã£o de atualizaÃ§Ãµes automÃ¡ticas via GitHub Releases.
- * Segue os princÃ­pios de SOLID e encapsulamento, com foco em simplicidade e robustez para Windows.
+ * AppUpdater - Gerencia a verificação de atualizações automáticas via GitHub Releases.
+ * Segue os princípios de SOLID e encapsulamento, com foco em simplicidade e robustez para Windows.
  */
 class AppUpdater {
   constructor(currentVersion, repoOwner, repoName) {
@@ -19,7 +19,7 @@ class AppUpdater {
   }
 
   /**
-   * ObtÃ©m os caminhos corretos do executÃ¡vel, suportando executÃ¡veis portÃ¡teis do Electron.
+   * Obtém os caminhos corretos do executável, suportando executáveis portáteis do Electron.
    * @returns {{currentExePath: string, currentDir: string, exeName: string}}
    */
   getPaths() {
@@ -73,9 +73,9 @@ class AppUpdater {
   }
 
   /**
-   * Compara duas versÃµes semÃ¢nticas para determinar se a Ãºltima Ã© mais recente que a atual.
+   * Compara duas versões semânticas para determinar se a última é mais recente que a atual.
    * @param {string} latest - Tag de versão mais recente do GitHub (ex: "v1.1.0" ou "1.1.0").
-   * @param {string} current - VersÃ£o instalada atualmente (ex: "1.0.0").
+   * @param {string} current - Versão instalada atualmente (ex: "1.0.0").
    * @returns {boolean}
    */
   isNewerVersion(latest, current) {
@@ -89,7 +89,7 @@ class AppUpdater {
   }
 
   /**
-   * Faz requisiÃ§Ãµes HTTPS e segue redirecionamentos retornando dados em JSON.
+   * Faz requisições HTTPS e segue redirecionamentos retornando dados em JSON.
    * @param {string} url - URL para consulta.
    * @returns {Promise<any>}
    */
@@ -104,7 +104,7 @@ class AppUpdater {
         if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
           const redirectUrl = this.resolveRedirectUrl(res.headers.location, url);
           if (!redirectUrl) {
-            return reject(new Error('Redirecionamento sem header Location vÃƒÂ¡lido.'));
+            return reject(new Error('Redirecionamento sem header Location válido.'));
           }
           res.resume();
           return this.fetchJson(redirectUrl).then(resolve).catch(reject);
@@ -128,7 +128,7 @@ class AppUpdater {
 
   /**
    * Ponto de entrada que roda silenciosamente ao iniciar o aplicativo.
-   * @returns {Promise<boolean>} Retorna true se houver uma nova versÃ£o e a janela de update foi aberta.
+   * @returns {Promise<boolean>} Retorna true se houver uma nova versão e a janela de update foi aberta.
    */
   async checkForUpdates() {
     try {
@@ -143,7 +143,7 @@ class AppUpdater {
         return false;
       }
 
-      // Procura o asset executÃ¡vel do Windows (.exe)
+      // Procura o asset executável do Windows (.exe)
       const assets = Array.isArray(release.assets) ? release.assets : [];
       const { exeName } = this.getPaths();
       const normalizedExeName = String(exeName || '').toLowerCase();
@@ -162,7 +162,7 @@ class AppUpdater {
       // Inicializa os listeners de IPC para a janela customizada
       this.setupIpcListeners();
 
-      // Abre a janela customizada e frameless de atualizaÃ§Ã£o
+      // Abre a janela customizada e frameless de atualização
       this.createUpdateWindow();
 
       return true;
@@ -174,7 +174,7 @@ class AppUpdater {
   }
 
   /**
-   * Cria a janela de atualizaÃ§Ã£o com estilo premium, frameless e transparente.
+   * Cria a janela de atualização com estilo premium, frameless e transparente.
    */
   createUpdateWindow() {
     this.updateWindow = new BrowserWindow({
@@ -197,7 +197,7 @@ class AppUpdater {
 
     this.updateWindow.once('ready-to-show', () => {
       this.updateWindow.show();
-      // Envia informaÃ§Ãµes do release para popular a janela
+      // Envia informações do release para popular a janela
       this.updateWindow.webContents.send('update-metadata', {
         version: this.latestVersion
       });
@@ -205,10 +205,10 @@ class AppUpdater {
   }
 
   /**
-   * Configura os listeners do processo principal para receber aÃ§Ãµes da janela customizada.
+   * Configura os listeners do processo principal para receber ações da janela customizada.
    */
   setupIpcListeners() {
-    // Evita registros duplicados de listeners se a funÃ§Ã£o for chamada mais de uma vez
+    // Evita registros duplicados de listeners se a função for chamada mais de uma vez
     ipcMain.removeAllListeners('start-update-download');
     ipcMain.removeAllListeners('cancel-update');
 
@@ -230,7 +230,7 @@ class AppUpdater {
         try {
           fs.unlinkSync(downloadDestPath);
         } catch {
-          // Ignora se o arquivo temporÃƒÂ¡rio anterior nÃƒÂ£o existir.
+          // Ignora se o arquivo temporário anterior não existir.
         }
         
         await this.downloadFile(this.exeAsset.browser_download_url, downloadDestPath, (progress) => {
@@ -246,15 +246,15 @@ class AppUpdater {
       } catch (error) {
         console.error('[Updater] Falha ao efetuar download do update:', error.message);
         dialog.showErrorBox(
-          'Falha na AtualizaÃ§Ã£o',
-          `NÃ£o foi possÃ­vel baixar a nova versÃ£o: ${error.message}\nO sistema serÃ¡ encerrado.`
+          'Falha na Atualização',
+          `Não foi possível baixar a nova versão: ${error.message}\nO sistema será encerrado.`
         );
         app.quit();
       }
     });
 
     ipcMain.on('cancel-update', () => {
-      console.log('[Updater] O usuÃ¡rio cancelou a atualizaÃ§Ã£o. Encerrando sistema...');
+      console.log('[Updater] O usuário cancelou a atualização. Encerrando sistema...');
       app.quit();
     });
   }
@@ -279,7 +279,7 @@ class AppUpdater {
       try {
         fs.unlinkSync(tempPath);
       } catch {
-        // Ignora se o temporÃƒÂ¡rio nÃƒÂ£o existir.
+        // Ignora se o temporário não existir.
       }
 
       https.get(url, options, (res) => {
