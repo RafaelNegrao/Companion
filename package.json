@@ -1,6 +1,6 @@
 {
   "name": "companion-app",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "description": "App lateral que abre ao passar o mouse",
   "main": "src/main/main.js",
   "scripts": {

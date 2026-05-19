@@ -510,10 +510,11 @@ document.addEventListener('DOMContentLoaded', () => {
     mainContent.addEventListener('mouseleave', () => {
       const modal = document.getElementById('custom-modal');
       const isModalActive = modal && modal.classList.contains('active');
+      const isPickerActive = document.querySelector('.picker-overlay') !== null;
       
       if (isLocked) {
         if (window.electronAPI && window.electronAPI.setWindowPointerIdle) window.electronAPI.setWindowPointerIdle(true);
-      } else if (!isModalActive && !deveManterJanelaAbertaPorInteracao()) {
+      } else if (!isModalActive && !isPickerActive && !deveManterJanelaAbertaPorInteracao()) {
         if (window.electronAPI && window.electronAPI.collapseWindow) window.electronAPI.collapseWindow();
       }
     });
@@ -1325,18 +1326,298 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function abrirPickerMesAnoPersonalizado(inputElement) {
+    if (!inputElement || inputElement.disabled) return;
+
+    const valorAtual = inputElement.value || obterMesAtualInput();
+    let [anoSelecionado, mesSelecionado] = valorAtual.split('-').map(Number);
+    let anoVisualizado = anoSelecionado;
+
+    // Cria o overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'picker-overlay';
+
+    // Cria o card
+    const card = document.createElement('div');
+    card.className = 'picker-card';
+    overlay.appendChild(card);
+
+    const mesesNomes = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+
+    function renderizarCard() {
+      card.innerHTML = `
+        <div class="picker-header">
+          <button type="button" class="picker-year-btn" id="picker-btn-prev-year">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          <span class="picker-year-title" id="picker-txt-year">${anoVisualizado}</span>
+          <button type="button" class="picker-year-btn" id="picker-btn-next-year">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+        </div>
+        <div class="picker-months-grid">
+          ${mesesNomes.map((nome, idx) => {
+            const mNum = idx + 1;
+            const isActive = (anoVisualizado === anoSelecionado && mNum === mesSelecionado);
+            return `
+              <button type="button" class="picker-month-btn ${isActive ? 'active' : ''}" data-month="${mNum}">
+                ${nome.substring(0, 3)}
+              </button>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      // Year nav
+      card.querySelector('#picker-btn-prev-year').onclick = (e) => {
+        e.stopPropagation();
+        anoVisualizado -= 1;
+        renderizarCard();
+      };
+
+      card.querySelector('#picker-btn-next-year').onclick = (e) => {
+        e.stopPropagation();
+        anoVisualizado += 1;
+        renderizarCard();
+      };
+
+      // Month select
+      card.querySelectorAll('.picker-month-btn').forEach((btn) => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          const m = Number(btn.getAttribute('data-month'));
+          const mStr = String(m).padStart(2, '0');
+          inputElement.value = `${anoVisualizado}-${mStr}`;
+          inputElement.dispatchEvent(new Event('change'));
+          fecharPicker();
+        };
+      });
+    }
+
+    function fecharPicker() {
+      overlay.remove();
+    }
+
+    overlay.onclick = (e) => {
+      if (e.target === overlay) {
+        fecharPicker();
+      }
+    };
+
+    // Calcula a posição do popup abaixo do input/wrapper
+    const targetEl = inputElement.parentElement || inputElement;
+    const rect = targetEl.getBoundingClientRect();
+    card.style.position = 'absolute';
+    card.style.top = `${rect.bottom + window.scrollY + 6}px`;
+
+    // Alinhamento horizontal inteligente para evitar estourar a tela à direita
+    const cardWidth = 280;
+    if (rect.left + cardWidth > window.innerWidth) {
+      card.style.left = `${rect.right - cardWidth + window.scrollX}px`;
+    } else {
+      card.style.left = `${rect.left + window.scrollX}px`;
+    }
+
+    renderizarCard();
+    document.body.appendChild(overlay);
+  }
+
+  function abrirPickerDataPersonalizado(inputElement) {
+    if (!inputElement || inputElement.disabled) return;
+
+    // Obtém o valor atual (YYYY-MM-DD) ou data de hoje
+    const valorAtual = inputElement.value || new Date().toISOString().split('T')[0];
+    let [anoSelecionado, mesSelecionado, diaSelecionado] = valorAtual.split('-').map(Number);
+    
+    let anoVisualizado = anoSelecionado;
+    let mesVisualizado = mesSelecionado;
+
+    // Cria o overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'picker-overlay';
+
+    // Cria o card
+    const card = document.createElement('div');
+    card.className = 'picker-card';
+    overlay.appendChild(card);
+
+    const mesesNomes = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+
+    const diasNomes = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+    function renderizarCard() {
+      // Cálculo dos dias do mês
+      const primeiroDia = new Date(anoVisualizado, mesVisualizado - 1, 1);
+      const diaSemanaInicial = primeiroDia.getDay(); // 0 = Dom, 6 = Sáb
+      
+      const totalDiasMes = new Date(anoVisualizado, mesVisualizado, 0).getDate();
+      const totalDiasMesAnterior = new Date(anoVisualizado, mesVisualizado - 1, 0).getDate();
+      
+      const dias = [];
+      
+      // Dias do mês anterior (padded)
+      for (let i = diaSemanaInicial - 1; i >= 0; i--) {
+        dias.push({
+          dia: totalDiasMesAnterior - i,
+          outroMes: true,
+          mes: mesVisualizado === 1 ? 12 : mesVisualizado - 1,
+          ano: mesVisualizado === 1 ? anoVisualizado - 1 : anoVisualizado
+        });
+      }
+      
+      // Dias do mês atual
+      for (let d = 1; d <= totalDiasMes; d++) {
+        dias.push({
+          dia: d,
+          outroMes: false,
+          mes: mesVisualizado,
+          ano: anoVisualizado
+        });
+      }
+      
+      // Dias do próximo mês (padded)
+      const totalSlots = dias.length <= 35 ? 35 : 42;
+      const proxDiasPadded = totalSlots - dias.length;
+      for (let n = 1; n <= proxDiasPadded; n++) {
+        dias.push({
+          dia: n,
+          outroMes: true,
+          mes: mesVisualizado === 12 ? 1 : mesVisualizado + 1,
+          ano: mesVisualizado === 12 ? anoVisualizado + 1 : anoVisualizado
+        });
+      }
+
+      card.innerHTML = `
+        <div class="picker-header">
+          <button type="button" class="picker-year-btn" id="picker-btn-prev-month">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          <span class="picker-year-title" id="picker-txt-title">${mesesNomes[mesVisualizado - 1]} ${anoVisualizado}</span>
+          <button type="button" class="picker-year-btn" id="picker-btn-next-month">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+        </div>
+        
+        <div class="picker-days-header">
+          ${diasNomes.map((n) => `<span class="picker-day-name">${n}</span>`).join('')}
+        </div>
+        
+        <div class="picker-days-grid">
+          ${dias.map((item) => {
+            const isActive = (!item.outroMes && anoSelecionado === item.ano && mesSelecionado === item.mes && diaSelecionado === item.dia);
+            return `
+              <button type="button" class="picker-day-btn ${item.outroMes ? 'other-month' : ''} ${isActive ? 'active' : ''}" 
+                      data-day="${item.dia}" data-month="${item.mes}" data-ano="${item.ano}">
+                ${item.dia}
+              </button>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      // Navegação de mês anterior
+      card.querySelector('#picker-btn-prev-month').onclick = (e) => {
+        e.stopPropagation();
+        if (mesVisualizado === 1) {
+          mesVisualizado = 12;
+          anoVisualizado -= 1;
+        } else {
+          mesVisualizado -= 1;
+        }
+        renderizarCard();
+      };
+
+      // Navegação de próximo mês
+      card.querySelector('#picker-btn-next-month').onclick = (e) => {
+        e.stopPropagation();
+        if (mesVisualizado === 12) {
+          mesVisualizado = 1;
+          anoVisualizado += 1;
+        } else {
+          mesVisualizado += 1;
+        }
+        renderizarCard();
+      };
+
+      // Seleção de dia
+      card.querySelectorAll('.picker-day-btn').forEach((btn) => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          const d = Number(btn.getAttribute('data-day'));
+          const m = Number(btn.getAttribute('data-month'));
+          const a = Number(btn.getAttribute('data-ano'));
+          
+          const dStr = String(d).padStart(2, '0');
+          const mStr = String(m).padStart(2, '0');
+          
+          inputElement.value = `${a}-${mStr}-${dStr}`;
+          inputElement.dispatchEvent(new Event('change'));
+          fecharPicker();
+        };
+      });
+    }
+
+    function fecharPicker() {
+      overlay.remove();
+    }
+
+    overlay.onclick = (e) => {
+      if (e.target === overlay) {
+        fecharPicker();
+      }
+    };
+
+    // Calcula a posição do popup abaixo do input/wrapper
+    const targetEl = inputElement.parentElement || inputElement;
+    const rect = targetEl.getBoundingClientRect();
+    card.style.position = 'absolute';
+    card.style.top = `${rect.bottom + window.scrollY + 6}px`;
+
+    // Alinhamento horizontal inteligente para evitar estourar a tela à direita
+    const cardWidth = 280;
+    if (rect.left + cardWidth > window.innerWidth) {
+      card.style.left = `${rect.right - cardWidth + window.scrollX}px`;
+    } else {
+      card.style.left = `${rect.left + window.scrollX}px`;
+    }
+
+    renderizarCard();
+    document.body.appendChild(overlay);
+  }
+
   function inicializarIconesDateTimeComPicker() {
     const wrappers = document.querySelectorAll('.input-icon-embedded');
     wrappers.forEach((wrapper) => {
-      const input = wrapper.querySelector('input[type="date"], input[type="time"]');
+      const input = wrapper.querySelector('input[type="date"], input[type="time"], input[type="month"]');
       const icon = wrapper.querySelector('.icon.icon-embedded');
       if (!input || !icon) return;
       if (icon.dataset.pickerBound === '1') return;
       icon.dataset.pickerBound = '1';
 
-      icon.addEventListener('click', (event) => {
+      const abrirPicker = (event) => {
         event.preventDefault();
         event.stopPropagation();
+
+        if (input.type === 'month') {
+          setTimeout(() => {
+            abrirPickerMesAnoPersonalizado(input);
+          }, 10);
+          return;
+        }
+
+        if (input.type === 'date' && (input.id === 'consulta-data-de' || input.id === 'consulta-data-ate' || input.id === 'pessoa-nascimento')) {
+          setTimeout(() => {
+            abrirPickerDataPersonalizado(input);
+          }, 10);
+          return;
+        }
+
         try {
           if (typeof input.showPicker === 'function') {
             input.showPicker();
@@ -1348,7 +1629,13 @@ document.addEventListener('DOMContentLoaded', () => {
           input.focus();
           input.click();
         }
-      });
+      };
+
+      icon.addEventListener('click', abrirPicker);
+      if (input.type === 'month' || (input.type === 'date' && (input.id === 'consulta-data-de' || input.id === 'consulta-data-ate' || input.id === 'pessoa-nascimento'))) {
+        input.addEventListener('click', abrirPicker);
+        input.style.cursor = 'pointer';
+      }
     });
   }
 
@@ -1374,18 +1661,16 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabId === 'pedido' && typeof atualizarStatusPastaPedido === 'function') {
         atualizarStatusPastaPedido();
       }
+
+      // Redesenha os gráficos de Indicadores quando a aba se torna ativa (com delay para cálculo de largura preciso)
+      if (tabId === 'indicadores' && typeof renderizarIndicadoresUltimoSnapshot === 'function') {
+        setTimeout(() => {
+          renderizarIndicadoresUltimoSnapshot();
+        }, 50);
+      }
     });
   });
 
-  // Sistema de seções retráteis (Accordion)
-  const docSectionTitles = document.querySelectorAll('.doc-section-title');
-
-  docSectionTitles.forEach(title => {
-    title.addEventListener('click', () => {
-      const section = title.closest('.doc-section');
-      if (section) section.classList.toggle('collapsed');
-    });
-  });
 
 
   // Máscara para CNPJ
@@ -1711,7 +1996,7 @@ async function buscarDadosPorCPF(cpf) {
     console.log('[ok] Dados da pessoa encontrados:', dados);
     
     // Preencher o campo nome
-    const nomeInput = document.querySelector('#subtab-pessoais .doc-section:nth-child(1) .form-grid-2:nth-child(2) .form-field:nth-child(1) input');
+    const nomeInput = document.getElementById('pessoa-nome');
     
     if (nomeInput && dados.nome) {
       nomeInput.value = dados.nome;
@@ -1721,7 +2006,7 @@ async function buscarDadosPorCPF(cpf) {
     
     // Preencher data de nascimento se disponível
     if (dados.nascimento) {
-      const nascimentoInput = document.querySelector('#subtab-pessoais .doc-section:nth-child(1) .form-grid-2:nth-child(2) .form-field:nth-child(2) input');
+      const nascimentoInput = document.getElementById('pessoa-nascimento');
       if (nascimentoInput) {
         // Converter de DD/MM/YYYY para YYYY-MM-DD
         const partes = dados.nascimento.split('/');
@@ -1736,7 +2021,7 @@ async function buscarDadosPorCPF(cpf) {
     
     // Preencher nome da mãe se disponível
     if (dados.nome_mae) {
-      const maeInput = document.querySelector('#subtab-pessoais .doc-section:nth-child(1) .form-field.full input');
+      const maeInput = document.getElementById('pessoa-mae');
       if (maeInput) {
         maeInput.value = dados.nome_mae;
         maeInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -2897,6 +3182,73 @@ function obterChaveTranslucidezJanela(usuario = currentUser?.email) {
   return `companion-window-translucency:${usuario || 'local'}`;
 }
 
+// ── Font Size ──────────────────────────────────────────────────────────────
+const FONT_SIZE_PADRAO = 0;
+const BASE_FONTES = { label: 10, xs: 11, sm: 12, md: 13, lg: 14 };
+const FONT_SIZE_NOMES = { '-2': 'Menor', '-1': 'Pequeno', '0': 'Normal', '1': 'Grande', '2': 'Maior', '3': 'Muito Grande', '4': 'Máximo' };
+
+function obterChaveFontSize(usuario = currentUser?.email) {
+  return `companion-font-size:${usuario || 'local'}`;
+}
+
+function normalizarFontSize(val) {
+  const n = parseInt(val);
+  return isNaN(n) ? FONT_SIZE_PADRAO : Math.min(4, Math.max(-2, n));
+}
+
+function lerFontSize(usuario = currentUser?.email) {
+  const stored = localStorage.getItem(obterChaveFontSize(usuario));
+  return normalizarFontSize(stored ?? FONT_SIZE_PADRAO);
+}
+
+function salvarFontSize(val, usuario = currentUser?.email) {
+  localStorage.setItem(obterChaveFontSize(usuario), String(normalizarFontSize(val)));
+}
+
+function atualizarControlesFontSize(n) {
+  const range = document.getElementById('config-font-size');
+  const number = document.getElementById('config-font-size-number');
+  const label = document.getElementById('config-font-size-label');
+  if (range) {
+    range.value = String(n);
+    range.style.setProperty('--translucency-fill', `${((n - (-2)) / 6) * 100}%`);
+  }
+  if (number) number.value = String(n);
+  if (label) label.textContent = FONT_SIZE_NOMES[String(n)] ?? 'Normal';
+}
+
+function aplicarFontSize(val) {
+  const n = normalizarFontSize(val);
+  // Zoom de 5% por passo — afeta tudo (px hardcoded, vars, SVGs, etc.)
+  const zoom = (1 + n * 0.05).toFixed(3);
+  const mainContent = document.getElementById('main-content');
+  if (mainContent) mainContent.style.zoom = zoom;
+  // CSS vars para elementos que as usam diretamente
+  const root = document.documentElement;
+  root.style.setProperty('--ui-font-label', (BASE_FONTES.label + n) + 'px');
+  root.style.setProperty('--ui-font-xs',    (BASE_FONTES.xs    + n) + 'px');
+  root.style.setProperty('--ui-font-sm',    (BASE_FONTES.sm    + n) + 'px');
+  root.style.setProperty('--ui-font-md',    (BASE_FONTES.md    + n) + 'px');
+  root.style.setProperty('--ui-font-lg',    (BASE_FONTES.lg    + n) + 'px');
+  atualizarControlesFontSize(n);
+}
+
+function inicializarFontSize(usuario = currentUser?.email) {
+  const range = document.getElementById('config-font-size');
+  const number = document.getElementById('config-font-size-number');
+  if (!range || !number) return;
+
+  aplicarFontSize(lerFontSize(usuario));
+
+  if (range.dataset.boundFontSize === '1') return;
+  range.dataset.boundFontSize = '1';
+
+  const sincronizar = (e) => aplicarFontSize(e.target.value);
+  range.addEventListener('input', sincronizar);
+  number.addEventListener('input', sincronizar);
+  number.addEventListener('blur', () => aplicarFontSize(number.value));
+}
+
 function lerTranslucidezJanela(usuario = currentUser?.email) {
   return normalizarTranslucidezJanela(
     localStorage.getItem(obterChaveTranslucidezJanela(usuario)) ?? TRANSLUCIDEZ_JANELA_PADRAO
@@ -3162,6 +3514,7 @@ garantirBarraInferiorConfiguracoes();
 inicializarMonitoramentoConfiguracoes();
 inicializarSecoesConfiguracoesRetrateis();
 inicializarTranslucidezJanela();
+inicializarFontSize();
 atualizarStatusConfiguracoes('idle', 'Sem alteracoes');
 
 function obterChaveConsoleConfiguracoes(usuario = currentUser?.email) {
@@ -3206,6 +3559,7 @@ async function carregarConfiguracoes() {
     inicializarSecoesConfiguracoesRetrateis();
     inicializarToggleSenhaConfig();
     inicializarTranslucidezJanela();
+    inicializarFontSize();
     isCarregandoConfiguracoes = true;
 
     if (!currentUser) {
@@ -3255,6 +3609,7 @@ async function carregarConfiguracoes() {
     setField('config-imp-renda', config.imposto_validacao ?? 15);
     setField('config-desc-validacao', config.desconto_validacao ?? 2.75);
     inicializarTranslucidezJanela(usuarioConfigurado);
+    inicializarFontSize(usuarioConfigurado);
     sincronizarSwitchConsoleConfiguracoes(usuarioConfigurado);
     await atualizarStatusPastaUsuario();
     configuracoesAlteradas = false;
@@ -3312,6 +3667,7 @@ if (salvarConfigBtn) {
     salvarConsoleHabilitado(Boolean(document.getElementById('config-console-enabled')?.checked), usuario);
     salvarTranslucidezJanela(document.getElementById('config-window-translucency')?.value, usuario);
     aplicarTranslucidezJanela(document.getElementById('config-window-translucency')?.value);
+    salvarFontSize(document.getElementById('config-font-size')?.value, usuario);
     
     try {
       const resultado = await window.electronAPI.salvarConfiguracoes(config);
@@ -4933,9 +5289,9 @@ function desenharGraficoUnificado(resumo) {
     return;
   }
   
-  const largura = 760;
+  const largura = container.clientWidth || 760;
   const altura = 220;
-  const margem = { top: 15, right: 8, bottom: 28, left: 8 };
+  const margem = { top: 15, right: 20, bottom: 28, left: 20 };
   const plotW = largura - margem.left - margem.right;
   const plotH = altura - margem.top - margem.bottom;
   const maxValor = Math.max(...valores, 1);
@@ -5130,9 +5486,9 @@ function renderizarGraficoHorariosIndicadores(container, resumo) {
   const horas = Array.from({ length: 14 }, (_, i) => i + 7);
   const max = Math.max(...horas.map((hora) => buckets[hora] || 0), 1);
   
-  const largura = 760;
+  const largura = container.clientWidth || 760;
   const altura = 190;
-  const margem = { top: 22, right: 8, bottom: 30, left: 8 };
+  const margem = { top: 22, right: 24, bottom: 30, left: 24 };
   const plotW = largura - margem.left - margem.right;
   const plotH = altura - margem.top - margem.bottom;
   const passoX = plotW / Math.max(1, horas.length - 1);
@@ -5599,6 +5955,13 @@ function renderizarIndicadoresUltimoSnapshot() {
   renderizarIndicadores(indicadoresUltimoSnapshot.pedidosMes, indicadoresUltimoSnapshot.pedidosAno, indicadoresUltimoSnapshot.limites);
 }
 
+// Redesenha os gráficos de forma responsiva ao redimensionar a janela
+window.addEventListener('resize', () => {
+  if (typeof renderizarIndicadoresUltimoSnapshot === 'function') {
+    renderizarIndicadoresUltimoSnapshot();
+  }
+});
+
 function renderizarIndicadores(pedidosMes, pedidosAno, limites) {
   const resumo = montarResumoIndicadores(pedidosMes, pedidosAno, limites);
   renderizarKPIsIndicadores(document.getElementById('indicadores-kpis'), resumo);
@@ -5722,6 +6085,13 @@ async function carregarIndicadores() {
   indicadoresCarregando = true;
 
   const mesInput = document.getElementById('indicadores-mes');
+  const mesPrevBtn = document.getElementById('indicadores-mes-prev');
+  const mesNextBtn = document.getElementById('indicadores-mes-next');
+
+  if (mesInput) mesInput.disabled = true;
+  if (mesPrevBtn) mesPrevBtn.disabled = true;
+  if (mesNextBtn) mesNextBtn.disabled = true;
+
   const limites = obterLimitesMesIndicadores(mesInput?.value || obterMesAtualInput());
   if (mesInput && !mesInput.value) mesInput.value = `${limites.ano}-${String(limites.mes).padStart(2, '0')}`;
 
@@ -5773,6 +6143,9 @@ async function carregarIndicadores() {
     });
   } finally {
     if (atualizarBtn) atualizarBtn.disabled = false;
+    if (mesInput) mesInput.disabled = false;
+    if (mesPrevBtn) mesPrevBtn.disabled = false;
+    if (mesNextBtn) mesNextBtn.disabled = false;
     indicadoresCarregando = false;
   }
 }

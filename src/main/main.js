@@ -128,10 +128,16 @@ function animateWindowClose(window, callback) {
   }, interval);
 }
 
+function getAutoZoomFactor() {
+  const { height } = screen.getPrimaryDisplay().size;
+  // Scale down proportionally for screens shorter than 1080p; never scale up.
+  return Math.min(1, Math.max(0.6, height / 1080));
+}
+
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   const TRIGGER_MARGIN = 10; // Margem do trigger em relação à borda
-  
+
   // Cria janela escondida na borda direita (inicialmente só mostra a seta)
   mainWindow = new BrowserWindow({
     width: TRIGGER_WIDTH,
@@ -160,6 +166,7 @@ function createWindow() {
   
   // Mostra janela diretamente (trigger area não precisa animação)
   mainWindow.once('ready-to-show', () => {
+    mainWindow.webContents.setZoomFactor(getAutoZoomFactor());
     mainWindow.show();
   });
 }
@@ -1528,6 +1535,20 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+if (!app.isPackaged) {
+  const rendererDir = path.join(__dirname, '../renderer');
+  let reloadTimer = null;
+  fs.watch(rendererDir, { recursive: true }, (event, filename) => {
+    if (!filename) return;
+    clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(() => {
+      BrowserWindow.getAllWindows().forEach(win => {
+        if (!win.isDestroyed()) win.webContents.reload();
+      });
+    }, 300);
+  });
+}
 
 
 

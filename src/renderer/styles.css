@@ -950,13 +950,7 @@ body.expanded #main-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  cursor: pointer;
   user-select: none;
-  transition: opacity 0.2s;
-}
-
-.doc-section-title:hover {
-  opacity: 0.8;
 }
 
 .doc-section-title-left {
@@ -983,8 +977,8 @@ body.expanded #main-content {
 }
 
 .doc-section-content {
-  
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
   max-height: 2000px;
   opacity: 1;
 }
@@ -3018,11 +3012,6 @@ body.expanded #main-content {
   pointer-events: none;
 }
 
-.dropzone.disabled * {
-  /* Removido pointer-events: none para permitir modo pendente */
-}
-
-
 
 
 /* ESTILOS DE SEÇÃO - PADRONIZADOS */
@@ -3035,12 +3024,13 @@ body.expanded #main-content {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-#section-dados-pedido-campos, #section-docs {
+#section-dados-pessoais, #section-empresa, #section-comentarios, #section-docs {
   background: rgba(55, 55, 61, 0.5) !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-#section-dados-pedido-campos .doc-section-title-left::before { background: #0a84ff !important; box-shadow: 0 0 10px rgba(10, 132, 255, 0.2); }
+#section-dados-pessoais .doc-section-title-left::before { background: #0a84ff !important; box-shadow: 0 0 10px rgba(10, 132, 255, 0.2); }
+#section-empresa .doc-section-title-left::before { background: #34c759 !important; box-shadow: 0 0 10px rgba(52, 199, 89, 0.2); }
 #section-docs .doc-section-title-left::before { background: #ff9500 !important; box-shadow: 0 0 10px rgba(255, 149, 0, 0.2); }
 
 /* Estilos de Subgrupos com Indicadores */
@@ -3161,6 +3151,18 @@ body.expanded #main-content {
 .info-icon-btn svg {
   stroke: currentColor;
 }
+
+#ver-calculo-comissao.info-icon-btn {
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+}
+
+#ver-calculo-comissao.info-icon-btn svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
 
 /* Estilos para o conteúdo do modal de cálculo */
 .calculo-detalhe {
@@ -3712,11 +3714,11 @@ body.expanded #main-content {
 #pedido .form-grid-3,
 #pedido .form-grid-5 {
   gap: 5px !important;
-  margin-bottom: 4px !important;
+  margin-bottom: 7px !important;
 }
 
 #pedido .form-field.full {
-  margin-bottom: 4px !important;
+  margin-bottom: 7px !important;
 }
 
 #pedido .input-dark,
@@ -3914,6 +3916,82 @@ body.expanded #main-content {
   width: 14px !important;
   height: 14px !important;
 }
+
+/* Unificação dos Campos Superiores em um Único Card */
+.pedido-campos-main-card {
+  background: var(--ui-surface) !important;
+  border-radius: var(--ui-radius-md) !important;
+  padding: 6px 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 7px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+#pedido .pedido-header,
+#pedido .info-row-vertical,
+#pedido .info-grid {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+}
+
+/* Layout: Dados Pessoais + Comentários side-by-side */
+.pedido-row-top {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 10px;
+  align-items: stretch;
+  width: 100%;
+}
+
+#section-dados-pessoais {
+  margin-bottom: 0 !important;
+}
+
+#section-comentarios {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+#section-comentarios .doc-section-content {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+#section-comentarios .doc-section-content .form-field.full {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+#section-comentarios .doc-section-title-left::before {
+  background: #af52de !important;
+  box-shadow: 0 0 10px rgba(175, 82, 222, 0.4);
+}
+
+#pedido #pedido-comentarios.input-dark {
+  width: 100% !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  resize: none !important;
+}
+
+/* Responsividade para telas menores/compactas */
+@media (max-width: 768px) {
+  .pedido-row-top {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 
 

@@ -41,15 +41,15 @@
   --ui-pad-md: 8px;
   --ui-pad-lg: 10px;
 
-  --ui-font-label: 9px;
-  --ui-font-xs: 10px;
-  --ui-font-sm: 11px;
-  --ui-font-md: 12px;
-  --ui-font-lg: 13px;
+  --ui-font-label: 10px;
+  --ui-font-xs: 11px;
+  --ui-font-sm: 12px;
+  --ui-font-md: 13px;
+  --ui-font-lg: 14px;
 
-  --ui-field-height: 24px;
-  --ui-field-height-sm: 22px;
-  --ui-button-height: 25px;
+  --ui-field-height: 26px;
+  --ui-field-height-sm: 24px;
+  --ui-button-height: 27px;
   --ui-icon-size: 24px;
   --ui-window-pad-x: 12px;
 }
@@ -193,7 +193,7 @@ input[type="number"] {
 .doc-section-title {
   padding-bottom: 5px !important;
   margin-bottom: 6px !important;
-  border-bottom: 1px solid var(--ui-border) !important;
+  border-bottom: none !important;
 }
 
 .form-field,
@@ -209,11 +209,24 @@ input[type="number"] {
 
 .form-grid-2,
 .form-grid-3,
+.form-grid-3-1,
 .form-grid-5,
 .info-grid,
 .config-cert-grid {
   gap: var(--ui-gap-2) !important;
-  margin-bottom: var(--ui-gap-2) !important;
+  margin-bottom: var(--ui-gap-3) !important;
+}
+
+.form-grid-3-1 {
+  display: grid !important;
+  grid-template-columns: 3fr 1fr !important;
+}
+
+input[type="date"],
+input[type="time"] {
+  min-height: var(--ui-field-height) !important;
+  height: var(--ui-field-height) !important;
+  line-height: 1 !important;
 }
 
 .input-dark,
@@ -320,21 +333,25 @@ button,
 }
 
 #pedido .pedido-icon-action {
-  width: 38px !important;
-  height: 38px !important;
-  min-width: 38px !important;
-  min-height: 38px !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
   padding: 0 !important;
   border: none !important;
-  border-radius: 10px !important;
+  border-radius: 7px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
 }
 
 #pedido .pedido-icon-action svg {
-  width: 23px !important;
-  height: 23px !important;
+  width: 15px !important;
+  height: 15px !important;
+}
+
+#pedido .pedido-header .pedido-field:first-child {
+  flex: 2 !important;
 }
 
 #pedido .pedido-icon-action.secondary {
@@ -368,9 +385,6 @@ button,
   gap: 10px !important;
 }
 
-#pedido .pedido-header,
-#pedido .info-row-vertical,
-#pedido .info-grid,
 #pedido .status-box {
   padding: 7px 9px !important;
 }
@@ -410,21 +424,24 @@ button,
 }
 
 #pedido .doc-section-content {
+  overflow: hidden !important;
   padding-top: 7px !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 5px !important;
+  gap: var(--ui-gap-3) !important;
 }
 
 #pedido .doc-section-content > .form-grid-2,
 #pedido .doc-section-content > .form-grid-3,
+#pedido .doc-section-content > .form-grid-3-1,
 #pedido .doc-section-content > .form-grid-5,
 #pedido .doc-section-content > .form-field.full {
   margin-top: 0 !important;
   margin-bottom: 0 !important;
 }
 
-#pedido .doc-section-content .form-grid-2 {
+#pedido .doc-section-content .form-grid-2,
+#pedido .doc-section-content .form-grid-3-1 {
   align-items: stretch !important;
 }
 
@@ -472,6 +489,62 @@ button,
   line-height: 1.2 !important;
 }
 
+/* Comentários: empty state icon */
+.comentarios-wrap {
+  position: relative !important;
+  background: var(--ui-surface-2) !important;
+  border-radius: var(--ui-radius-xs) !important;
+}
+
+.comentarios-wrap #pedido-comentarios.input-dark {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.comentarios-empty-state {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 6px !important;
+  color: rgba(255, 255, 255, 0.1) !important;
+  pointer-events: none !important;
+  transition: opacity 0.2s ease !important;
+  opacity: 1 !important;
+}
+
+.comentarios-empty-state span {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.1) !important;
+  white-space: nowrap !important;
+}
+
+#pedido-comentarios:not(:placeholder-shown) ~ .comentarios-empty-state,
+#pedido-comentarios:focus ~ .comentarios-empty-state {
+  opacity: 0 !important;
+}
+
+/* doc-section-content: garante margin/gap zero em todos os cards do pedido */
+#pedido .doc-section-content > .form-grid-2,
+#pedido .doc-section-content > .form-grid-3,
+#pedido .doc-section-content > .form-grid-3-1,
+#pedido .doc-section-content > .form-grid-5,
+#pedido .doc-section-content > .form-field.full {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Empresa oculto por default — JS controla via style.display */
+#section-empresa {
+  display: block;
+}
+
 /* Consulta */
 #consulta .consulta-top {
   padding: 7px 12px 0 !important;
@@ -481,12 +554,12 @@ button,
   grid-template-columns: minmax(190px, 220px) minmax(0, 1fr) !important;
   column-gap: 20px !important;
   row-gap: var(--ui-gap-2) !important;
-  padding: var(--ui-pad-sm) !important;
+  padding: 10px 12px !important;
   margin-bottom: var(--ui-gap-5) !important;
 }
 
 #consulta .filter-left {
-  gap: var(--ui-gap-2) !important;
+  gap: 8px !important;
   min-width: 190px !important;
 }
 
@@ -516,14 +589,14 @@ button,
   display: flex !important;
   align-items: center !important;
   background: rgba(60, 60, 67, 0.6) !important;
-  border-radius: 12px !important;
+  border-radius: var(--ui-radius-xs) !important;
   border: 1px solid transparent !important;
   padding: 0 !important;
   box-sizing: border-box !important;
   transition: all 0.2s ease !important;
   max-width: 260px !important;
   width: 100% !important;
-  height: 30px !important;
+  height: var(--ui-field-height) !important;
   overflow: hidden !important;
 }
 
@@ -566,11 +639,11 @@ button,
 }
 
 #consulta .btn-date-nav:first-child {
-  border-radius: 12px 0 0 12px !important;
+  border-radius: var(--ui-radius-xs) 0 0 var(--ui-radius-xs) !important;
 }
 
 #consulta .btn-date-nav:last-child {
-  border-radius: 0 12px 12px 0 !important;
+  border-radius: 0 var(--ui-radius-xs) var(--ui-radius-xs) 0 !important;
 }
 
 #consulta .btn-date-nav:hover {
@@ -840,7 +913,7 @@ button,
 #configuracoes .section:not(.config-bottom-bar) .form-grid-3,
 #configuracoes .section:not(.config-bottom-bar) .form-grid-5 {
   gap: var(--ui-gap-2) !important;
-  margin-bottom: var(--ui-gap-2) !important;
+  margin-bottom: var(--ui-gap-3) !important;
 }
 
 #configuracoes .config-switch-row {
@@ -1266,10 +1339,11 @@ button,
   background: var(--ui-surface-2) !important;
   border-radius: var(--ui-radius-sm) !important;
   border: 1px solid transparent !important;
-  padding: 1px !important;
+  padding: 0 !important;
   height: var(--indicadores-control-height) !important;
   box-sizing: border-box !important;
   transition: all 0.2s ease !important;
+  overflow: hidden !important;
 }
 
 #indicadores .month-selector-wrapper:focus-within {
@@ -1277,30 +1351,52 @@ button,
   background: var(--ui-surface-3) !important;
 }
 
+#indicadores .month-selector-wrapper .input-icon-embedded {
+  flex: 1 !important;
+  height: 100% !important;
+  position: relative !important;
+}
+
 #indicadores .month-selector-wrapper .input-dark {
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
-  padding: 0 4px !important;
+  padding: 0 28px 0 8px !important;
   text-align: center !important;
-  width: 140px !important;
+  width: 100% !important;
   height: 100% !important;
   margin: 0 !important;
+  max-width: none !important;
+}
+
+#indicadores .month-selector-wrapper .input-dark::-webkit-calendar-picker-indicator,
+#indicadores .month-selector-wrapper .input-dark::-webkit-inner-spin-button,
+#indicadores .month-selector-wrapper .input-dark::-webkit-clear-button {
+  display: none !important;
+  -webkit-appearance: none !important;
 }
 
 #indicadores .btn-month-nav {
   background: transparent !important;
   border: none !important;
   color: var(--ui-text-muted) !important;
-  width: 22px !important;
-  height: 22px !important;
+  width: 26px !important;
+  height: 100% !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  border-radius: var(--ui-radius-xs) !important;
   cursor: pointer !important;
   transition: all 0.2s ease !important;
   padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+#indicadores .btn-month-nav:first-child {
+  border-radius: var(--ui-radius-sm) 0 0 var(--ui-radius-sm) !important;
+}
+
+#indicadores .btn-month-nav:last-child {
+  border-radius: 0 var(--ui-radius-sm) var(--ui-radius-sm) 0 !important;
 }
 
 #indicadores .btn-month-nav:hover {
@@ -1310,6 +1406,13 @@ button,
 
 #indicadores .btn-month-nav:active {
   transform: scale(0.9) !important;
+}
+
+#indicadores .btn-month-nav:disabled,
+#indicadores .month-selector-wrapper .input-dark:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
 }
 
 /* Tooltip Customizado dos Gráficos (Glassmorphism) */
@@ -1575,20 +1678,20 @@ button,
 }
 
 #indicadores .chart-area {
-  height: 200px !important;
-  min-height: 200px !important;
+  height: auto !important;
+  min-height: auto !important;
   position: relative !important;
   padding: var(--ui-pad-sm) 0 !important;
 }
 
 #indicadores .chart-area.compact {
-  height: 280px !important;
-  min-height: 280px !important;
+  height: auto !important;
+  min-height: auto !important;
 }
 
 #indicadores .indicador-svg {
   width: 100% !important;
-  height: 100% !important;
+  height: auto !important;
   display: block !important;
 }
 
@@ -2413,4 +2516,173 @@ button,
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.22) !important;
+}
+
+/* Custom Month/Year Picker Modal (Premium Dropdown/Hover Style) */
+.picker-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  z-index: 10000 !important;
+}
+
+.picker-card {
+  background: rgba(30, 30, 35, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  border-radius: var(--ui-radius-sm) !important;
+  width: 280px !important;
+  padding: 12px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  transform: translateY(-6px);
+  opacity: 0;
+  animation: pickerSlideDown 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif !important;
+}
+
+@keyframes pickerSlideDown {
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.picker-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  padding-bottom: 8px !important;
+}
+
+.picker-year-title {
+  font-size: var(--ui-font-sm) !important;
+  font-weight: 700 !important;
+  color: var(--ui-text) !important;
+  letter-spacing: 0.5px !important;
+}
+
+.picker-year-btn {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: var(--ui-text-muted) !important;
+  border-radius: var(--ui-radius-xs) !important;
+  width: 26px !important;
+  height: 26px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.picker-year-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: var(--ui-text) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.picker-months-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 6px !important;
+}
+
+.picker-month-btn {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  color: var(--ui-text-muted) !important;
+  border-radius: var(--ui-radius-xs) !important;
+  height: 34px !important;
+  font-size: var(--ui-font-xs) !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+}
+
+.picker-month-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: var(--ui-text) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.picker-month-btn.active {
+  background: var(--ui-blue) !important;
+  color: #fff !important;
+  border-color: var(--ui-blue) !important;
+  box-shadow: 0 0 12px rgba(10, 132, 255, 0.4) !important;
+}
+
+/* Custom Date Picker Popup (Premium Glassmorphism Dropdown) */
+.picker-days-header {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  gap: 4px !important;
+  text-align: center !important;
+  margin-top: 4px !important;
+  margin-bottom: 4px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  padding-top: 6px !important;
+}
+
+.picker-day-name {
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  color: var(--ui-text-muted) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+
+.picker-days-grid {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  gap: 4px !important;
+}
+
+.picker-day-btn {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: var(--ui-text) !important;
+  border-radius: var(--ui-radius-xs) !important;
+  height: 28px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+}
+
+.picker-day-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.picker-day-btn.active {
+  background: var(--ui-blue) !important;
+  color: #fff !important;
+  border-color: var(--ui-blue) !important;
+  box-shadow: 0 0 10px rgba(10, 132, 255, 0.4) !important;
+}
+
+.picker-day-btn.other-month {
+  color: rgba(255, 255, 255, 0.18) !important;
+  font-weight: 400 !important;
 }
