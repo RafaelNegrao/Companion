@@ -17,13 +17,8 @@ body {
 
 .login-container {
   width: 100%;
-  max-width: 400px;
+  max-width: 560px;
   padding: 20px;
-  transition: max-width 0.3s ease;
-}
-
-.login-container.register-mode {
-  max-width: 700px;
 }
 
 .login-box {

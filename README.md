@@ -38,7 +38,9 @@ Crie o arquivo `.env` na raiz com:
 ```env
 SUPABASE_URL=
 SUPABASE_ANON_KEY=
-APP_AUTH_PEPPER=
 ```
 
-Use a chave do Supabase e um `APP_AUTH_PEPPER` longo e aleatorio.
+Use a URL e a `anon key` do seu projeto Supabase (Project Settings → API). O
+login/cadastro é feito pelo Supabase Auth — veja `LOGIN-MULTIUSUARIO.md` para
+a arquitetura completa e `database/schema.sql` + `database/schema-auth.sql`
+para o schema.

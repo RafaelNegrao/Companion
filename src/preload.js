@@ -22,7 +22,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   buscarConfiguracoes: (usuario) => ipcRenderer.invoke('buscar-configuracoes', usuario),
   salvarConfiguracoes: (config) => ipcRenderer.invoke('salvar-configuracoes', config),
   getCredentials: () => ipcRenderer.invoke('get-credentials'),
+  authLogout: () => ipcRenderer.invoke('auth-logout'),
+  authRecuperarSenha: (email) => ipcRenderer.invoke('auth-recuperar-senha', { email }),
+  authConfirmarRecuperacao: (data) => ipcRenderer.invoke('auth-confirmar-recuperacao', data),
   buscarPedidos: (filtros) => ipcRenderer.invoke('buscar-pedidos', filtros),
+  contarStatusPedidos: () => ipcRenderer.invoke('contar-status-pedidos'),
   getCurrentUser: () => ipcRenderer.invoke('get-current-user'),
   verificarPastaPedido: (data) => ipcRenderer.invoke('verificar-pasta-pedido', data),
   criarPastaPedido: (data) => ipcRenderer.invoke('criar-pasta-pedido', data),
@@ -35,11 +39,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   capturarPrintPedido: (data) => ipcRenderer.invoke('capturar-print-pedido', data),
   listarAnexosPedido: (data) => ipcRenderer.invoke('listar-anexos-pedido', data),
   abrirArquivo: (filePath) => ipcRenderer.invoke('abrir-arquivo', filePath),
+  abrirLinkExterno: (url) => ipcRenderer.invoke('abrir-link-externo', url),
+  // Cadastro de usuarios: exige sessao ativa (checado no processo principal)
+  criarUsuario: (dados) => ipcRenderer.invoke('auth-register', dados),
   excluirPastaPedido: (data) => ipcRenderer.invoke('excluir-pasta-pedido', data),
   excluirAnexoPedido: (data) => ipcRenderer.invoke('excluir-anexo-pedido', data),
   getPathForFile: (file) => webUtils?.getPathForFile ? webUtils.getPathForFile(file) : file?.path,
-  startUpdateDownload: () => ipcRenderer.send('start-update-download'),
-  cancelUpdate: () => ipcRenderer.send('cancel-update'),
-  onUpdateProgress: (callback) => ipcRenderer.on('update-progress', (event, value) => callback(value)),
-  onUpdateMetadata: (callback) => ipcRenderer.on('update-metadata', (event, metadata) => callback(metadata))
+  // Atualizacao silenciosa: a interface so escuta o estado; nao ha nada para
+  // iniciar ou cancelar, o download roda sozinho e a instalacao acontece ao sair.
+  onUpdateStatus: (callback) => ipcRenderer.on('update-status', (event, payload) => callback(payload))
 });

@@ -20,6 +20,11 @@ function aplicarFiltros(query, filters) {
     const op = filter.op || 'eq';
     const value = filter.value;
 
+    if (op === 'or' && typeof query.or === 'function') {
+      query = query.or(value);
+      return;
+    }
+
     if (!column || typeof query[op] !== 'function') return;
     query = query[op](column, value);
   });
