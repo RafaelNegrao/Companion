@@ -1,6 +1,7 @@
 // Configuracao segura do Supabase via .env
 const fs = require('fs');
 const path = require('path');
+const { app } = require('electron');
 const { createClient } = require('@supabase/supabase-js');
 
 function carregarEnvLocal() {
@@ -41,10 +42,57 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('SUPABASE_URL ou SUPABASE_ANON_KEY nao definidos. Configure no arquivo .env');
 }
 
+// Storage customizado: persiste a sessao do Supabase Auth num arquivo dentro
+// da pasta de dados do usuario (nao existe localStorage no processo main).
+// Gravacao atomica (arquivo .tmp + rename) porque o autoRefreshToken escreve
+// sozinho em background a cada renovacao de token — se o processo morrer no
+// meio de um writeFileSync direto, o JSON corrompe e a sessao "some" mesmo
+// com o refresh_token ainda valido do lado do Supabase.
+const sessionPath = path.join(app.getPath('userData'), 'supabase-session.json');
+
+const fileStorage = {
+  getItem(key) {
+    try {
+      const dados = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
+      return Object.prototype.hasOwnProperty.call(dados, key) ? dados[key] : null;
+    } catch {
+      return null;
+    }
+  },
+  setItem(key, value) {
+    let dados = {};
+    try {
+      dados = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
+    } catch {
+      dados = {};
+    }
+    dados[key] = value;
+
+    const tmpPath = `${sessionPath}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(dados));
+    fs.renameSync(tmpPath, sessionPath);
+  },
+  removeItem(key) {
+    let dados = {};
+    try {
+      dados = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
+    } catch {
+      return;
+    }
+    delete dados[key];
+
+    const tmpPath = `${sessionPath}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(dados));
+    fs.renameSync(tmpPath, sessionPath);
+  }
+};
+
 const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
-    persistSession: false,
-    autoRefreshToken: false
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    storage: fileStorage
   }
 });
 

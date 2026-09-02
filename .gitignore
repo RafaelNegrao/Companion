@@ -3,3 +3,11 @@ dist/
 *.log
 .DS_Store
 .env
+
+# Dump legado com dados pessoais de clientes (CPF, e-mail, endereco).
+# NUNCA versionar: este repositorio e publico.
+database/bdpedidos.json
+
+# Rascunhos de design e fontes locais
+.dsgn/
+.design-scratch/

@@ -1,9 +1,9 @@
 const { app, BrowserWindow, screen, ipcMain, shell, safeStorage, desktopCapturer } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const crypto = require('crypto');
 const Store = require('./store');
 const crud = require('./crud');
+const { supabase } = require('./supabase-config');
 const packageJson = require('../../package.json');
 const AppUpdater = require('./updater');
 
@@ -16,6 +16,7 @@ let lockedIdleOpacity = 1;
 let isCapturingScreenshot = false;
 let hideTimeout;
 let store;
+let appUpdater; // instancia do AppUpdater; usada tambem no 'will-quit'
 
 const TRIGGER_WIDTH = 50; // Largura da área de gatilho em pixels
 const TRIGGER_HEIGHT = 80; // Altura da seta
@@ -136,13 +137,13 @@ function getAutoZoomFactor() {
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const TRIGGER_MARGIN = 10; // Margem do trigger em relação à borda
-
+  const TRIGGER_MARGIN = 4; // Margem sutil da borda lateral
+  
   // Cria janela escondida na borda direita (inicialmente só mostra a seta)
   mainWindow = new BrowserWindow({
     width: TRIGGER_WIDTH,
     height: TRIGGER_HEIGHT,
-    x: width - TRIGGER_WIDTH - TRIGGER_MARGIN, // Com margem da borda
+    x: width - TRIGGER_WIDTH - TRIGGER_MARGIN,
     y: Math.floor((height - TRIGGER_HEIGHT) / 2), // Centraliza verticalmente
     frame: false,
     transparent: true,
@@ -174,14 +175,15 @@ function createWindow() {
 function expandWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   const WINDOW_WIDTH = Math.floor(width * 0.46);
-  const MARGIN = 15; // Margem das bordas da tela
+  const MARGIN_RIGHT = 5; // Mais próximo da borda (5px) sem colar totalmente
+  const MARGIN_VERT = 8;  // Margem vertical
   
   // Expande instantaneamente (sem animação para evitar problemas de renderização)
   mainWindow.setBounds({
     width: WINDOW_WIDTH,
-    height: height - (MARGIN * 2),
-    x: width - WINDOW_WIDTH - MARGIN,
-    y: MARGIN
+    height: height - (MARGIN_VERT * 2),
+    x: width - WINDOW_WIDTH - MARGIN_RIGHT,
+    y: MARGIN_VERT
   }, true);
   
   mainWindow.webContents.send('window-state', 'expanded');
@@ -189,7 +191,7 @@ function expandWindow() {
 
 function collapseWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const TRIGGER_MARGIN = 10;
+  const TRIGGER_MARGIN = 4; // Margem sutil da borda lateral
   
   // Colapsa instantaneamente (sem animação para evitar problemas de renderização)
   mainWindow.setBounds({
@@ -263,7 +265,7 @@ ipcMain.handle('set-console-enabled', (event, enabled) => {
 
 // Criar janela de login
 function createLoginWindow() {
-  const loginWidth = 800;
+  const loginWidth = 900;
   const loginHeight = 580;
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   
@@ -381,58 +383,15 @@ function getUsuarioSessao(usuarioInformado) {
   return currentUser?.email || null;
 }
 
-function timingSafeStringEqual(a, b) {
-  const aBuf = Buffer.from(String(a || ''), 'utf8');
-  const bBuf = Buffer.from(String(b || ''), 'utf8');
-  if (aBuf.length !== bBuf.length) return false;
-  return crypto.timingSafeEqual(aBuf, bBuf);
-}
-
-function getAuthPepper() {
-  return process.env.APP_AUTH_PEPPER || '';
-}
-
-function hashPassword(password, saltHex = null) {
-  const salt = saltHex ? Buffer.from(saltHex, 'hex') : crypto.randomBytes(16);
-  const peppered = `${String(password)}${getAuthPepper()}`;
-  const key = crypto.scryptSync(peppered, salt, 64, {
-    N: 16384,
-    r: 8,
-    p: 1,
-    maxmem: 64 * 1024 * 1024
-  });
-
-  return `scrypt$16384$8$1$${salt.toString('hex')}$${key.toString('hex')}`;
-}
-
-function verifyPassword(password, storedPassword) {
-  const stored = String(storedPassword || '');
-  if (!stored) return false;
-
-  if (!stored.startsWith('scrypt$')) {
-    return timingSafeStringEqual(stored, password);
+// Filtros padrao pra buscar um pedido especifico, sempre restritos ao
+// usuario logado (user_id) — evita pegar pedido de outra conta pelo mesmo
+// numero (numero de pedido nao e globalmente unico, so por usuario).
+function filtrosPedidoAtual(pedido) {
+  const filtros = [{ column: 'pedido', op: 'eq', value: pedido }];
+  if (currentUser?.id) {
+    filtros.push({ column: 'user_id', op: 'eq', value: currentUser.id });
   }
-
-  const parts = stored.split('$');
-  if (parts.length !== 6) return false;
-
-  const [, nStr, rStr, pStr, saltHex, hashHex] = parts;
-  const N = Number(nStr);
-  const r = Number(rStr);
-  const p = Number(pStr);
-  if (!N || !r || !p || !saltHex || !hashHex) return false;
-
-  const peppered = `${String(password)}${getAuthPepper()}`;
-  const computed = crypto.scryptSync(peppered, Buffer.from(saltHex, 'hex'), 64, {
-    N,
-    r,
-    p,
-    maxmem: 64 * 1024 * 1024
-  });
-
-  const storedHash = Buffer.from(hashHex, 'hex');
-  if (storedHash.length !== computed.length) return false;
-  return crypto.timingSafeEqual(storedHash, computed);
+  return filtros;
 }
 
 function sanitizeUser(user) {
@@ -445,6 +404,43 @@ function sanitizeUser(user) {
   };
 }
 
+// Traduz os erros tecnicos do Supabase Auth (em ingles) pra mensagens legiveis.
+// Ver LOGIN-MULTIUSUARIO.md secao 8.
+function traduzirErroAuth(mensagem) {
+  const texto = `${mensagem}`.toLowerCase();
+  if (texto.includes('invalid login credentials')) return 'Email ou senha incorretos.';
+  if (texto.includes('user already registered') || texto.includes('already been registered')) {
+    return 'Já existe uma conta com esse e-mail.';
+  }
+  if (texto.includes('password should be at least')) return 'A senha precisa ter pelo menos 6 caracteres.';
+  if (texto.includes('unable to validate email') || texto.includes('invalid format')) return 'E-mail inválido.';
+  if (texto.includes('missing email or phone')) return 'Preencha o e-mail.';
+  if (texto.includes('token') && (texto.includes('expired') || texto.includes('invalid'))) {
+    return 'Código inválido ou expirado - peça um novo.';
+  }
+  return mensagem;
+}
+
+// Busca o perfil (nome/privilegio) na tabela "usuarios", vinculado ao id do
+// Supabase Auth. Cai num fallback minimo se o perfil ainda nao existir.
+async function carregarPerfilUsuario(authUser) {
+  const { data: perfil, error } = await crud.findOne('usuarios', {
+    columns: 'id, nome, privilegio',
+    filters: { id: authUser.id }
+  });
+
+  if (error) {
+    console.error('Erro ao carregar perfil do usuário:', error);
+  }
+
+  return sanitizeUser({
+    id: authUser.id,
+    email: authUser.email,
+    nome: perfil?.nome || authUser.email,
+    privilegio: perfil?.privilegio || 'usuario'
+  });
+}
+
 ipcMain.handle('auth-login', async (event, { email, password }) => {
   try {
     const emailNorm = String(email || '').trim().toLowerCase();
@@ -454,84 +450,153 @@ ipcMain.handle('auth-login', async (event, { email, password }) => {
       return { success: false, error: 'Credenciais inválidas' };
     }
 
-    const { data: usuario, error } = await crud.findOne('usuarios', {
-      columns: 'id, nome, email, senha, privilegio',
-      filters: { email: emailNorm }
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: emailNorm,
+      password: senha
     });
 
-    if (error) {
-      console.error('Erro ao autenticar usuário:', error);
-      return { success: false, error: 'Falha na autenticação' };
+    if (error || !data?.user) {
+      return { success: false, error: traduzirErroAuth(error?.message || 'Falha na autenticação') };
     }
 
-    if (!usuario || !verifyPassword(senha, usuario.senha)) {
-      return { success: false, error: 'Email ou senha incorretos' };
-    }
-
-    if (!String(usuario.senha || '').startsWith('scrypt$')) {
-      const senhaHash = hashPassword(senha);
-      const { error: migraErro } = await crud.update('usuarios', { senha: senhaHash }, {
-        filters: { id: usuario.id },
-        columns: false
-      });
-
-      if (migraErro) {
-        console.warn('Falha ao migrar senha legada para hash:', migraErro.message);
-      }
-    }
-
-    return { success: true, data: sanitizeUser(usuario) };
+    const usuarioSanitizado = await carregarPerfilUsuario(data.user);
+    return { success: true, data: usuarioSanitizado };
   } catch (err) {
     console.error('Erro inesperado no auth-login:', err);
     return { success: false, error: 'Falha na autenticação' };
   }
 });
 
-ipcMain.handle('auth-register', async (event, { nome, email, senha, privilegio = 'usuario' }) => {
+// Cadastro de usuarios. Deixou de ser publico na tela de login: agora so quem
+// ja esta autenticado cria conta para outra pessoa, pela aba Configuracoes.
+ipcMain.handle('auth-register', async (event, { nome, email, senha }) => {
   try {
+    // Sem sessao ativa nao ha cadastro. A tela de login nao chama mais este
+    // canal, mas a checagem mora aqui: proteger so na interface nao protege.
+    if (!currentUser?.id && !currentUser?.email) {
+      return { success: false, error: 'É preciso estar autenticado para criar uma conta.' };
+    }
+
     const nomeNorm = String(nome || '').trim();
     const emailNorm = String(email || '').trim().toLowerCase();
     const senhaNorm = String(senha || '');
-    const privNorm = String(privilegio || 'usuario').trim().toLowerCase() || 'usuario';
+    // O privilegio NAO vem mais do renderer. Ele ia parar no user_metadata do
+    // signUp, que e controlado pelo cliente — quem tivesse o app instalado
+    // poderia criar uma conta 'admin'. Toda conta nova nasce como 'usuario';
+    // promover e acao manual no banco (ver database/schema-hardening.sql).
+    const privNorm = 'usuario';
 
     if (!nomeNorm || !emailNorm || !senhaNorm) {
       return { success: false, error: 'Dados obrigatórios ausentes' };
     }
 
-    const { data: existente, error: erroBusca } = await crud.findOne('usuarios', {
-      columns: 'id',
-      filters: { email: emailNorm }
+    // signUp() troca a sessao persistida pela do usuario recem-criado — quem
+    // estava logado seria deslogado e cairia na conta nova. Guarda os tokens
+    // atuais para devolver a sessao logo em seguida.
+    const { data: sessaoAntes } = await supabase.auth.getSession();
+    const sessaoOperador = sessaoAntes?.session || null;
+
+    const { data, error } = await supabase.auth.signUp({
+      email: emailNorm,
+      password: senhaNorm,
+      options: {
+        data: { nome: nomeNorm, privilegio: privNorm }
+      }
     });
 
-    if (erroBusca) {
-      console.error('Erro ao verificar e-mail existente:', erroBusca);
-      return { success: false, error: 'Falha ao cadastrar usuário' };
+    if (sessaoOperador?.access_token && sessaoOperador?.refresh_token) {
+      try {
+        await supabase.auth.setSession({
+          access_token: sessaoOperador.access_token,
+          refresh_token: sessaoOperador.refresh_token
+        });
+      } catch (erroSessao) {
+        console.error('[auth-register] Falha ao restaurar a sessão do operador:', erroSessao.message);
+      }
     }
 
-    if (existente) {
-      return { success: false, error: 'Este email já está cadastrado' };
+    if (error || !data?.user) {
+      return { success: false, error: traduzirErroAuth(error?.message || 'Falha ao cadastrar usuário') };
     }
 
-    const senhaHash = hashPassword(senhaNorm);
-    const { data: novoUsuario, error: erroInsert } = await crud.insert('usuarios', {
-        nome: nomeNorm,
-        email: emailNorm,
-        senha: senhaHash,
-        privilegio: privNorm
-      }, {
-        columns: 'id, nome, email, privilegio',
-        single: true
-      });
+    // A linha de perfil em "usuarios" e criada automaticamente por um trigger
+    // no banco (on_auth_user_created, ver database/schema-auth.sql), a partir
+    // do user_metadata passado acima — funciona mesmo sem sessao ativa ainda
+    // (ex: confirmacao de e-mail pendente).
 
-    if (erroInsert) {
-      console.error('Erro ao criar usuário:', erroInsert);
-      return { success: false, error: 'Falha ao cadastrar usuário' };
-    }
-
-    return { success: true, data: sanitizeUser(novoUsuario) };
+    return {
+      success: true,
+      data: sanitizeUser({ id: data.user.id, email: emailNorm, nome: nomeNorm, privilegio: privNorm })
+    };
   } catch (err) {
     console.error('Erro inesperado no auth-register:', err);
     return { success: false, error: 'Falha ao cadastrar usuário' };
+  }
+});
+
+ipcMain.handle('auth-logout', async () => {
+  try {
+    await supabase.auth.signOut();
+    currentUser = null;
+
+    if (mainWindow) {
+      mainWindow.close();
+      mainWindow = null;
+    }
+    createLoginWindow();
+
+    return { success: true };
+  } catch (err) {
+    console.error('Erro ao sair:', err);
+    return { success: false, error: 'Falha ao sair' };
+  }
+});
+
+ipcMain.handle('auth-recuperar-senha', async (event, { email }) => {
+  try {
+    const emailNorm = String(email || '').trim().toLowerCase();
+    if (!emailNorm) return { success: false, error: 'Informe o e-mail.' };
+
+    const { error } = await supabase.auth.resetPasswordForEmail(emailNorm);
+    if (error) {
+      return { success: false, error: traduzirErroAuth(error.message) };
+    }
+    return { success: true };
+  } catch (err) {
+    console.error('Erro ao solicitar recuperação de senha:', err);
+    return { success: false, error: 'Falha ao solicitar recuperação de senha' };
+  }
+});
+
+ipcMain.handle('auth-confirmar-recuperacao', async (event, { email, codigo, novaSenha }) => {
+  try {
+    const emailNorm = String(email || '').trim().toLowerCase();
+    const token = String(codigo || '').trim();
+    const senhaNova = String(novaSenha || '');
+
+    if (!emailNorm || !token || !senhaNova) {
+      return { success: false, error: 'Preencha todos os campos.' };
+    }
+
+    const { error: erroVerificar } = await supabase.auth.verifyOtp({
+      email: emailNorm,
+      token,
+      type: 'recovery'
+    });
+
+    if (erroVerificar) {
+      return { success: false, error: traduzirErroAuth(erroVerificar.message) };
+    }
+
+    const { error: erroSenha } = await supabase.auth.updateUser({ password: senhaNova });
+    if (erroSenha) {
+      return { success: false, error: traduzirErroAuth(erroSenha.message) };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('Erro ao confirmar recuperação de senha:', err);
+    return { success: false, error: 'Falha ao confirmar recuperação de senha' };
   }
 });
 
@@ -602,16 +667,32 @@ ipcMain.handle('buscar-pedido', async (event, numeroPedido) => {
     const pedidoNumero = String(numeroPedido || '').trim();
     const usuarioSessao = getUsuarioSessao();
     const filtros = [{ column: 'pedido', op: 'eq', value: pedidoNumero }];
-    if (usuarioSessao) {
-      filtros.push({ column: 'usuario', op: 'eq', value: usuarioSessao });
+    if (currentUser?.id) {
+      filtros.push({ column: 'user_id', op: 'eq', value: currentUser.id });
     }
 
-    const { data, error } = await crud.select('pedidos', {
+    let { data, error } = await crud.select('pedidos', {
       columns: '*',
       filters: filtros,
       order: { column: 'id', ascending: false },
       limit: 1
     });
+
+    // Se não encontrou por user_id, tenta buscar pelo e-mail do usuário (registros legados)
+    if (!error && (!data || data.length === 0) && usuarioSessao) {
+      const { data: dataLegada, error: erroLegado } = await crud.select('pedidos', {
+        columns: '*',
+        filters: [
+          { column: 'pedido', op: 'eq', value: pedidoNumero },
+          { column: 'usuario', op: 'eq', value: usuarioSessao }
+        ],
+        order: { column: 'id', ascending: false },
+        limit: 1
+      });
+      if (!erroLegado && dataLegada?.length) {
+        data = dataLegada;
+      }
+    }
 
     if (error) {
       console.error('Erro ao buscar pedido:', error);
@@ -652,9 +733,14 @@ ipcMain.handle('buscar-por-cpf', async (event, cpf) => {
   try {
     console.log('ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Buscando CPF no banco:', cpf);
     
+    const filtrosCpf = [{ column: 'cpf', op: 'eq', value: cpf }];
+    if (currentUser?.id) {
+      filtrosCpf.push({ column: 'user_id', op: 'eq', value: currentUser.id });
+    }
+
     const { data, error } = await crud.select('pedidos', {
       columns: 'nome, nascimento, email, telefone, mae',
-      filters: { cpf },
+      filters: filtrosCpf,
       order: { column: 'created_at', ascending: false },
       limit: 1
     });
@@ -677,31 +763,64 @@ ipcMain.handle('buscar-por-cpf', async (event, cpf) => {
   }
 });
 
+function normalizarStatusBanco(status) {
+  const bruto = String(status || 'DIGITAÇÃO')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .trim();
+
+  if (bruto.includes('APROV')) return 'APROVADO';
+  if (bruto.includes('CANCEL')) return 'CANCELADO';
+  if (bruto.includes('VIDEO')) return 'VIDEO REALIZADA';
+  if (bruto.includes('VERIFIC')) return 'VERIFICAÇÃO';
+  if (bruto.includes('DIGIT')) return 'DIGITAÇÃO';
+
+  return 'DIGITAÇÃO';
+}
+
 // Handler para salvar/atualizar pedido no Supabase
 ipcMain.handle('salvar-pedido', async (event, pedidoData) => {
   try {
+    console.log('[main:salvar-pedido] Início do processamento. Payload recebido:', JSON.stringify(pedidoData, null, 2));
+
     const pedidoNumero = String(pedidoData?.pedido || '').trim();
     if (!pedidoNumero) {
+      console.warn('[main:salvar-pedido] Validação falhou: Número do pedido vazio.');
       return { success: false, error: 'Número do pedido é obrigatório.' };
     }
 
     const usuarioPedido = getUsuarioSessao(pedidoData?.usuario);
-    if (!usuarioPedido) {
+    console.log('[main:salvar-pedido] Verificação de usuário:', {
+      usuarioPedido,
+      currentUserId: currentUser?.id,
+      currentUserEmail: currentUser?.email
+    });
+
+    if (!usuarioPedido || !currentUser?.id) {
+      console.warn('[main:salvar-pedido] Validação falhou: Usuário não autenticado na sessão.');
       return { success: false, error: 'Usuário não identificado para salvar o pedido.' };
     }
+
+    const statusFinal = normalizarStatusBanco(pedidoData?.status);
 
     const payload = {
       ...pedidoData,
       pedido: pedidoNumero,
-      usuario: usuarioPedido
+      status: statusFinal,
+      usuario: usuarioPedido,
+      user_id: currentUser.id
     };
     delete payload.id;
 
+    console.log(`[main:salvar-pedido] Gravando pedido #${pedidoNumero} com status normalizado "${payload.status}"`);
+
     const filtrosExistencia = [
       { column: 'pedido', op: 'eq', value: pedidoNumero },
-      { column: 'usuario', op: 'eq', value: usuarioPedido }
+      { column: 'user_id', op: 'eq', value: currentUser.id }
     ];
 
+    console.log('[main:salvar-pedido] Consultando existência prévia no banco com filtros:', filtrosExistencia);
     const { data: existente, error: existeError } = await crud.select('pedidos', {
       columns: 'id',
       filters: filtrosExistencia,
@@ -710,42 +829,45 @@ ipcMain.handle('salvar-pedido', async (event, pedidoData) => {
     });
 
     if (existeError) {
-      console.error('Erro ao verificar pedido antes de salvar:', existeError);
+      console.error('[main:salvar-pedido] Erro ao consultar existência do pedido no banco:', existeError);
       return { success: false, error: existeError.message };
     }
 
     let data, error;
-    
+
     if (existente && existente.length > 0) {
       const idExistente = existente[0].id;
-      const filters = [{ column: 'usuario', op: 'eq', value: usuarioPedido }];
-      if (idExistente) {
-        filters.push({ column: 'id', op: 'eq', value: idExistente });
-      } else {
-        filters.push({ column: 'pedido', op: 'eq', value: pedidoNumero });
-      }
+      const filters = [
+        { column: 'user_id', op: 'eq', value: currentUser.id },
+        { column: 'id', op: 'eq', value: idExistente }
+      ];
+      console.log(`[main:salvar-pedido] Executando UPDATE no registro existente (id=${idExistente})...`);
       const result = await crud.update('pedidos', payload, {
         filters: filters,
         single: false
       });
+      console.log('[main:salvar-pedido] Resultado do UPDATE:', result);
       data = Array.isArray(result.data) && result.data.length > 0 ? result.data[0] : result.data;
       error = result.error;
     } else {
+      console.log('[main:salvar-pedido] Executando INSERT de novo pedido...');
       const result = await crud.insert('pedidos', payload, {
         single: true
       });
+      console.log('[main:salvar-pedido] Resultado do INSERT:', result);
       data = result.data;
       error = result.error;
     }
 
     if (error) {
-      console.error('Erro ao salvar pedido:', error);
+      console.error('[main:salvar-pedido] Erro retornado pelo Supabase:', error);
       return { success: false, error: error.message };
     }
 
+    console.log(`[main:salvar-pedido] Pedido #${pedidoNumero} salvo com sucesso! Ação: ${existente?.length ? 'updated' : 'created'}`);
     return { success: true, data, action: existente?.length ? 'updated' : 'created' };
   } catch (err) {
-    console.error('Erro ao salvar pedido:', err);
+    console.error('[main:salvar-pedido] Exceção capturada no handler:', err);
     return { success: false, error: err.message };
   }
 });
@@ -849,17 +971,13 @@ ipcMain.handle('buscar-configuracoes', async (event, usuario) => {
   try {
     const usuarioSessao = getUsuarioSessao(usuario);
 
-    if (!usuarioSessao) {
+    if (!usuarioSessao || !currentUser?.id) {
       return { success: false, error: 'Usuário logado não encontrado' };
     }
 
-    const usuarioFiltro = currentUser?.id
-      ? { id: currentUser.id }
-      : { email: usuarioSessao };
-
     const { data: usuarioData, error: usuarioError } = await crud.findOne('usuarios', {
-      columns: 'id, nome, email, privilegio',
-      filters: usuarioFiltro
+      columns: 'id, nome, privilegio',
+      filters: { id: currentUser.id }
     });
 
     if (usuarioError) {
@@ -867,11 +985,9 @@ ipcMain.handle('buscar-configuracoes', async (event, usuario) => {
       return { success: false, error: usuarioError.message };
     }
 
-    const usuarioEmail = usuarioData?.email || usuarioSessao;
-
     const { data, error } = await crud.findOne('configuracoes', {
       columns: '*',
-      filters: { usuario: usuarioEmail }
+      filters: { user_id: currentUser.id }
     });
 
     if (error) {
@@ -883,7 +999,7 @@ ipcMain.handle('buscar-configuracoes', async (event, usuario) => {
       success: true,
       data: {
         ...(data || {}),
-        usuario: usuarioEmail,
+        usuario: usuarioSessao,
         senha: '',
         nome_usuario: usuarioData?.nome || currentUser?.nome || '',
         privilegio: usuarioData?.privilegio || currentUser?.privilegio || ''
@@ -899,43 +1015,25 @@ ipcMain.handle('buscar-configuracoes', async (event, usuario) => {
 ipcMain.handle('salvar-configuracoes', async (event, config) => {
   try {
     const usuarioSessao = getUsuarioSessao();
-    const usuarioConfig = config?.usuario?.trim() || usuarioSessao;
 
-    if (!usuarioSessao || !usuarioConfig) {
+    if (!usuarioSessao || !currentUser?.id) {
       return { success: false, error: 'Usuário logado não encontrado' };
     }
 
     const senhaLogin = String(config?.senha || '').trim();
-    const usuarioUpdate = { email: usuarioConfig };
-
     if (senhaLogin) {
-      usuarioUpdate.senha = hashPassword(senhaLogin);
+      const { error: erroSenha } = await supabase.auth.updateUser({ password: senhaLogin });
+      if (erroSenha) {
+        console.error('Erro ao atualizar senha:', erroSenha);
+        return { success: false, error: traduzirErroAuth(erroSenha.message) };
+      }
     }
 
-    const usuarioFiltro = currentUser?.id
-      ? { id: currentUser.id }
-      : { email: usuarioSessao };
-
-    const { data: usuarioAtualizado, error: usuarioError } = await crud.update('usuarios', usuarioUpdate, {
-      filters: usuarioFiltro,
-      columns: 'id, nome, email, privilegio',
-      single: true
-    });
-
-    if (usuarioError) {
-      console.error('Erro ao atualizar usuário:', usuarioError);
-      return { success: false, error: usuarioError.message };
-    }
-
-    currentUser = {
-      ...(currentUser || {}),
-      ...usuarioAtualizado
-    };
-
-    const { senha, nome_usuario, privilegio, ...configuracao } = config;
+    const { senha, nome_usuario, privilegio, usuario, ...configuracao } = config;
     const configToSave = {
       ...configuracao,
-      usuario: usuarioAtualizado.email
+      usuario: usuarioSessao,
+      user_id: currentUser.id
     };
 
     const { data, error } = await crud.upsert('configuracoes', configToSave, {
@@ -948,7 +1046,7 @@ ipcMain.handle('salvar-configuracoes', async (event, config) => {
       return { success: false, error: error.message };
     }
 
-    return { success: true, data };
+    return { success: true, data: { ...data, usuario: usuarioSessao } };
   } catch (err) {
     console.error('Erro ao salvar configurações:', err);
     return { success: false, error: err.message };
@@ -958,58 +1056,189 @@ ipcMain.handle('salvar-configuracoes', async (event, config) => {
 // Handler para buscar pedidos do Supabase
 ipcMain.handle('buscar-pedidos', async (event, filtros = {}) => {
   try {
+    console.log('[buscar-pedidos] CHAMADO! Filtros recebidos:', JSON.stringify(filtros));
     const filters = [];
 
-    // Normaliza uma data (YYYY-MM-DD) para o início do dia em UTC
+    // A coluna 'data' e TEXT no formato YYYY-MM-DD (ver database/schema.sql),
+    // entao gte/lte fazem comparacao de STRING, nao de data.
+    //
+    // O limite inferior tem que ser a data pura: '2026-09-02T00:00:00' e MAIOR
+    // que '2026-09-02' (o prefixo mais curto ordena antes), entao acrescentar a
+    // hora aqui excluia justamente os pedidos do primeiro dia do intervalo.
     const normalizarInicioDia = (data) => {
       if (!data) return null;
-      const s = String(data).trim().slice(0, 10); // garante apenas YYYY-MM-DD
-      return `${s}T00:00:00`;
+      return String(data).trim().slice(0, 10); // garante apenas YYYY-MM-DD
     };
 
-    // Normaliza uma data (YYYY-MM-DD) para o final do dia em UTC
+    // No limite superior a hora e necessaria: mantem dentro do intervalo tanto
+    // '2026-09-02' quanto registros legados gravados com hora junto.
     const normalizarFimDia = (data) => {
       if (!data) return null;
       const s = String(data).trim().slice(0, 10);
       return `${s}T23:59:59`;
     };
 
-    // Aplicar filtros de data com cobertura total do dia
-    if (filtros.dataDe) {
-      filters.push({ column: 'data', op: 'gte', value: normalizarInicioDia(filtros.dataDe) });
-    }
-    if (filtros.dataAte) {
-      filters.push({ column: 'data', op: 'lte', value: normalizarFimDia(filtros.dataAte) });
-    }
-    if (filtros.status) {
-      filters.push({ column: 'status', op: 'eq', value: filtros.status });
-    }
-    
-    // Filtra pelo usuario logado (email da aba login)
-    const usuarioEmail = filtros.usuario || (currentUser ? currentUser.email : null);
-    if (usuarioEmail) {
-      filters.push({ column: 'usuario', op: 'eq', value: usuarioEmail });
+    // Aplicar filtros de data (apenas se não houver termo de busca específico)
+    if (!filtros.busca) {
+      if (filtros.dataDe) {
+        filters.push({ column: 'data', op: 'gte', value: normalizarInicioDia(filtros.dataDe) });
+      }
+      if (filtros.dataAte) {
+        filters.push({ column: 'data', op: 'lte', value: normalizarFimDia(filtros.dataAte) });
+      }
     }
 
-    const { data, error } = await crud.select('pedidos', {
-      columns: '*',
+    if (filtros.status) {
+      filters.push({ column: 'status', op: 'ilike', value: `%${String(filtros.status).trim()}%` });
+    }
+    
+    // Filtra pelo usuario logado
+    const emailUsuario = filtros.usuario || currentUser?.email;
+    if (currentUser?.id) {
+      filters.push({ column: 'user_id', op: 'eq', value: currentUser.id });
+    } else if (emailUsuario) {
+      filters.push({ column: 'usuario', op: 'eq', value: emailUsuario });
+    }
+
+    // Quem chama pode pedir só as colunas que vai usar (os indicadores fazem
+    // isso). Aceita apenas nomes simples separados por vírgula — nada vindo
+    // daqui pode virar SQL arbitrário. Se o banco nao tiver alguma das colunas
+    // pedidas, o retry mais abaixo refaz a consulta com '*'.
+    const colunasPedidas = typeof filtros.colunas === 'string'
+      && /^[a-z0-9_]+(,[a-z0-9_]+)*$/i.test(filtros.colunas.trim())
+      ? filtros.colunas.trim()
+      : null;
+
+    let { data, error } = await crud.select('pedidos', {
+      columns: colunasPedidas || '*',
       filters,
       order: [
-        { column: 'data', ascending: false },
         { column: 'id', ascending: false }
       ],
       limit: filtros.limit || 10000,
       offset: Number.isInteger(filtros.offset) ? filtros.offset : undefined
     });
 
+    // Se a lista enxuta de colunas nao existir neste banco, a consulta falha por
+    // inteiro. Refaz com '*' para nao derrubar a tela por causa da otimizacao.
+    if (error && colunasPedidas) {
+      console.warn('[buscar-pedidos] Colunas especificas recusadas, repetindo com "*":', error.message);
+      ({ data, error } = await crud.select('pedidos', {
+        columns: '*',
+        filters,
+        order: [
+          { column: 'id', ascending: false }
+        ],
+        limit: filtros.limit || 10000,
+        offset: Number.isInteger(filtros.offset) ? filtros.offset : undefined
+      }));
+    }
+
+    // Se nenhum pedido foi retornado com user_id, tenta buscar pelo usuario/email (legado)
+    if (!error && (!data || data.length === 0) && emailUsuario) {
+      const legacyFilters = filters.filter(f => f.column !== 'user_id');
+      legacyFilters.push({ column: 'usuario', op: 'eq', value: emailUsuario });
+
+      const { data: dataLegada, error: erroLegado } = await crud.select('pedidos', {
+        columns: '*',
+        filters: legacyFilters,
+        order: [
+          { column: 'id', ascending: false }
+        ],
+        limit: filtros.limit || 10000,
+        offset: Number.isInteger(filtros.offset) ? filtros.offset : undefined
+      });
+      if (!erroLegado && dataLegada?.length) {
+        data = dataLegada;
+      }
+    }
+
     if (error) {
-      console.error('Erro ao buscar pedidos:', error);
+      console.error('[buscar-pedidos] Erro ao buscar pedidos:', error);
       return { success: false, error: error.message };
     }
 
+    console.log('[buscar-pedidos] Total de pedidos encontrados:', data?.length);
+    // DEBUG: status distintos no banco
+    if (data?.length) {
+      const statusUnicos = [...new Set(data.map(p => p.status))];
+      console.log('[buscar-pedidos] Status distintos no banco:', JSON.stringify(statusUnicos));
+    }
     return { success: true, data };
   } catch (err) {
     console.error('Erro na busca de pedidos:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Handler dedicado para contar pedidos por status (evita o limite de 1000 do select geral)
+ipcMain.handle('contar-status-pedidos', async (event) => {
+  try {
+    const { supabase } = require('./supabase-config');
+    const userId = currentUser?.id;
+    const emailUsuario = currentUser?.email;
+
+    async function contarPorStatus(status) {
+      let query = supabase
+        .from('pedidos')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', status);
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      } else if (emailUsuario) {
+        query = query.eq('usuario', emailUsuario);
+      }
+
+      const { count, error } = await query;
+      if (error) {
+        console.error(`[contar-status] Erro ao contar "${status}":`, error.message);
+        return 0;
+      }
+      return count || 0;
+    }
+
+    const [video, verificacao] = await Promise.all([
+      contarPorStatus('VIDEO REALIZADA'),
+      contarPorStatus('VERIFICAÇÃO')
+    ]);
+
+    console.log('[contar-status] VIDEO REALIZADA:', video, '| VERIFICAÇÃO:', verificacao);
+    return { success: true, video, verificacao };
+  } catch (err) {
+    console.error('[contar-status] Erro:', err.message);
+    return { success: false, video: 0, verificacao: 0 };
+  }
+});
+
+// Handler para listar pedidos de um status específico (para o mini modal dos chips)
+ipcMain.handle('listar-pedidos-por-status', async (event, status) => {
+  try {
+    const { supabase } = require('./supabase-config');
+    const userId = currentUser?.id;
+    const emailUsuario = currentUser?.email;
+
+    let query = supabase
+      .from('pedidos')
+      .select('pedido, nome, email, cnpj, razao_social, id')
+      .eq('status', status)
+      .order('id', { ascending: false });
+
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else if (emailUsuario) {
+      query = query.eq('usuario', emailUsuario);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('[listar-pedidos-por-status] Erro:', error.message);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data: data || [] };
+  } catch (err) {
+    console.error('[listar-pedidos-por-status] Erro:', err.message);
     return { success: false, error: err.message };
   }
 });
@@ -1046,50 +1275,67 @@ function criarPastaClientePedido(usuario, pedido) {
 }
 
 async function salvarCaminhosPedidoNoBanco({ usuario, pedido, pastaRaiz, pastaCliente }) {
-  const payload = {
-    usuario,
-    pedido,
-    diretorio: pastaRaiz,
-    pasta: pastaCliente
-  };
-
   try {
-    const { data: existente } = await crud.select('pedidos', {
+    const filtrosBusca = [{ column: 'pedido', op: 'eq', value: String(pedido).trim() }];
+    if (currentUser?.id) {
+      filtrosBusca.push({ column: 'user_id', op: 'eq', value: currentUser.id });
+    }
+
+    const { data: existente, error: erroBusca } = await crud.select('pedidos', {
       columns: 'id',
-      filters: { pedido },
+      filters: filtrosBusca,
       limit: 1
     });
 
-    let data, error;
-    if (existente && existente.length > 0) {
-      const updateFilters = [];
-      if (existente[0].id) {
-        payload.id = existente[0].id;
-        updateFilters.push({ column: 'id', op: 'eq', value: payload.id });
-      } else {
-        updateFilters.push({ column: 'pedido', op: 'eq', value: pedido });
+    if (erroBusca) {
+      console.error('Erro ao verificar pedido existente antes de salvar caminhos:', erroBusca);
+      return { success: false, error: erroBusca.message };
+    }
+
+    if (!existente || existente.length === 0) {
+      const novoPedidoPayload = {
+        pedido: String(pedido).trim(),
+        user_id: currentUser?.id || null,
+        usuario: usuario,
+        diretorio: pastaRaiz,
+        pasta: pastaCliente,
+        status: 'DIGITAÇÃO'
+      };
+      const insertResult = await crud.insert('pedidos', novoPedidoPayload, { single: true });
+      if (insertResult.error) {
+        console.error('Erro ao inserir caminhos de pasta para novo pedido:', insertResult.error);
+        return { success: false, error: insertResult.error.message };
       }
-      
-      const result = await crud.update('pedidos', payload, {
-        filters: updateFilters,
-        single: false
-      });
-      data = result.data && result.data.length > 0 ? result.data[0] : result.data;
-      error = result.error;
+      return { success: true, data: insertResult.data };
+    }
+
+    const updateFilters = [];
+    const idExistente = existente[0].id;
+    if (idExistente) {
+      updateFilters.push({ column: 'id', op: 'eq', value: idExistente });
     } else {
-      return { success: false, error: 'Salve o pedido antes de criar a pasta ou salvar anexos.' };
-      const result = await crud.insert('pedidos', payload, {
-        single: true
-      });
-      data = result.data;
-      error = result.error;
+      updateFilters.push({ column: 'pedido', op: 'eq', value: String(pedido).trim() });
+    }
+    if (currentUser?.id) {
+      updateFilters.push({ column: 'user_id', op: 'eq', value: currentUser.id });
     }
 
-    if (error) {
-      console.error('Erro ao salvar caminhos da pasta no pedido:', error);
-      return { success: false, error: error.message };
+    const payloadAtualizacao = {
+      diretorio: pastaRaiz,
+      pasta: pastaCliente
+    };
+
+    const result = await crud.update('pedidos', payloadAtualizacao, {
+      filters: updateFilters,
+      single: false
+    });
+
+    if (result.error) {
+      console.error('Erro ao salvar caminhos da pasta no pedido:', result.error);
+      return { success: false, error: result.error.message };
     }
 
+    const data = result.data && result.data.length > 0 ? result.data[0] : result.data;
     return { success: true, data };
   } catch (err) {
     console.error('Erro ao buscar/salvar pedido existente antes de salvar caminhos:', err);
@@ -1102,9 +1348,14 @@ ipcMain.handle('verificar-pasta-pedido', async (event, { usuario, pedido }) => {
   let pastaCliente = getPastaClientePedido(usuario, pedido);
 
   try {
+    const filtrosPasta = [{ column: 'pedido', op: 'eq', value: pedido }];
+    if (currentUser?.id) {
+      filtrosPasta.push({ column: 'user_id', op: 'eq', value: currentUser.id });
+    }
+
     const { data } = await crud.select('pedidos', {
       columns: 'pasta',
-      filters: { pedido },
+      filters: filtrosPasta,
       limit: 1
     });
 
@@ -1118,25 +1369,8 @@ ipcMain.handle('verificar-pasta-pedido', async (event, { usuario, pedido }) => {
 
 ipcMain.handle('criar-pasta-pedido', async (event, { usuario, pedido }) => {
   if (!usuario || !pedido) return { success: false, error: 'Usuário ou pedido não informado' };
-  
+
   try {
-    const filtrosPedido = [{ column: 'pedido', op: 'eq', value: String(pedido).trim() }];
-    filtrosPedido.push({ column: 'usuario', op: 'eq', value: String(usuario).trim() });
-
-    const { data: pedidoExistente, error: erroPedidoExistente } = await crud.select('pedidos', {
-      columns: 'id',
-      filters: filtrosPedido,
-      limit: 1
-    });
-
-    if (erroPedidoExistente) {
-      return { success: false, error: erroPedidoExistente.message };
-    }
-
-    if (!pedidoExistente?.length) {
-      return { success: false, error: 'Salve o pedido antes de criar a pasta.' };
-    }
-
     const { pastaRaiz, pastaCliente } = criarPastaClientePedido(usuario, pedido);
     const dbResult = await salvarCaminhosPedidoNoBanco({ usuario, pedido, pastaRaiz, pastaCliente });
 
@@ -1170,7 +1404,7 @@ ipcMain.handle('abrir-pasta-pedido', async (event, { usuario, pedido }) => {
   try {
     const { data } = await crud.select('pedidos', {
       columns: 'pasta',
-      filters: { pedido },
+      filters: filtrosPedidoAtual(pedido),
       limit: 1
     });
 
@@ -1195,7 +1429,7 @@ ipcMain.handle('obter-pasta-pedido', async (event, { usuario, pedido }) => {
   try {
     const { data } = await crud.select('pedidos', {
       columns: 'diretorio, pasta',
-      filters: { pedido },
+      filters: filtrosPedidoAtual(pedido),
       limit: 1
     });
 
@@ -1251,7 +1485,7 @@ ipcMain.handle('salvar-anexo-pedido', async (event, { usuario, pedido, filePath,
   try {
     const { data: pedidoExistente } = await crud.select('pedidos', {
       columns: 'id',
-      filters: { pedido },
+      filters: filtrosPedidoAtual(pedido),
       limit: 1
     });
 
@@ -1292,7 +1526,7 @@ ipcMain.handle('salvar-anexo-pedido-conteudo', async (event, { usuario, pedido, 
   try {
     const { data: pedidoExistente } = await crud.select('pedidos', {
       columns: 'id',
-      filters: { pedido },
+      filters: filtrosPedidoAtual(pedido),
       limit: 1
     });
 
@@ -1342,7 +1576,7 @@ ipcMain.handle('listar-anexos-pedido', async (event, { usuario, pedido }) => {
   try {
     const { data } = await crud.select('pedidos', {
       columns: 'pasta',
-      filters: { pedido },
+      filters: filtrosPedidoAtual(pedido),
       limit: 1
     });
 
@@ -1376,7 +1610,7 @@ ipcMain.handle('capturar-print-pedido', async (event, { usuario, pedido }) => {
   try {
     const { data } = await crud.select('pedidos', {
       columns: 'diretorio, pasta',
-      filters: { pedido },
+      filters: filtrosPedidoAtual(pedido),
       limit: 1
     });
 
@@ -1501,34 +1735,66 @@ ipcMain.handle('abrir-arquivo', async (event, filePath) => {
   }
 });
 
+// Abre uma URL no navegador padrao do sistema.
+// So http/https passam: shell.openExternal aceita qualquer esquema, e um
+// 'file:' ou 'cmd:' vindo daqui executaria algo na maquina do usuario.
+ipcMain.handle('abrir-link-externo', async (event, url) => {
+  try {
+    const alvo = new URL(String(url || ''));
+    if (alvo.protocol !== 'http:' && alvo.protocol !== 'https:') {
+      console.warn('[abrir-link-externo] Esquema recusado:', alvo.protocol);
+      return { success: false, error: 'Somente links http/https' };
+    }
+    await shell.openExternal(alvo.href);
+    return { success: true };
+  } catch (error) {
+    console.error('Erro ao abrir link externo:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 app.whenReady().then(async () => {
   store = new Store();
 
   // Limpa silenciosamente executáveis .old remanescentes de atualizações anteriores
-  try {
-    const oldExePath = process.execPath + '.old';
-    if (fs.existsSync(oldExePath)) {
-      fs.unlinkSync(oldExePath);
-    }
-  } catch (e) {
-    // Falha silenciosa se o arquivo ainda estiver sendo indexado/sincronizado pelo OneDrive
-  }
+  // A atualizacao nunca atrasa a abertura: o app sobe primeiro e a verificacao
+  // corre em segundo plano, avisando a interface pelo canal 'update-status'.
+  await iniciarJanelaPrincipalOuLogin();
 
-  // Inicializa a verificação e gerenciamento de atualizações automáticas
-  const updater = new AppUpdater(packageJson.version, 'RafaelNegrao', 'Companion');
-  const temAtualizacao = await updater.checkForUpdates();
-
-  // Se NÃO houver atualização pendente, inicia a tela de login normalmente
-  if (!temAtualizacao) {
-    createLoginWindow();
-  }
+  appUpdater = new AppUpdater(packageJson.version, 'RafaelNegrao', 'Companion');
+  appUpdater.checkForUpdates();
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0 && !temAtualizacao) {
-      createLoginWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      iniciarJanelaPrincipalOuLogin();
     }
   });
 });
+
+// Ao encerrar, se houver instalador baixado, ele roda em silencio (/S) e a
+// proxima abertura ja e da versao nova.
+app.on('will-quit', () => {
+  if (appUpdater) appUpdater.instalarAoSair();
+});
+
+// Tenta restaurar uma sessao Supabase Auth persistida (ver supabase-config.js).
+// Se existir sessao valida, pula a tela de login e abre a janela principal
+// direto; senao, mostra o login normalmente.
+async function iniciarJanelaPrincipalOuLogin() {
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (!error && data?.session?.user) {
+      currentUser = await carregarPerfilUsuario(data.session.user);
+      console.log('Sessão restaurada para:', currentUser?.email);
+      createWindow();
+      return;
+    }
+  } catch (err) {
+    console.error('Erro ao restaurar sessão Supabase:', err);
+  }
+
+  createLoginWindow();
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

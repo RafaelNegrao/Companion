@@ -18,10 +18,7 @@
         <div class="form-group">
           <label for="username">Email</label>
           <div class="input-wrapper">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-              <polyline points="22,6 12,13 2,6"/>
-            </svg>
+            <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM203.43,64,128,133.15,52.57,64ZM216,192H40V74.19l82.59,75.71a8,8,0,0,0,10.82,0L216,74.19V192Z"/></svg>
             <input type="email" id="username" name="username" placeholder="Digite seu email" required autofocus>
           </div>
         </div>
@@ -29,10 +26,7 @@
         <div class="form-group">
           <label for="password">Senha</label>
           <div class="input-wrapper">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
+            <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M208,80H176V56a48,48,0,0,0-96,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM96,56a32,32,0,0,1,64,0V80H96ZM208,208H48V96H208V208Zm-68-56a12,12,0,1,1-12-12A12,12,0,0,1,140,152Z"/></svg>
             <input type="password" id="password" name="password" placeholder="Digite sua senha" required>
           </div>
         </div>
@@ -48,96 +42,73 @@
         
         <button type="submit" class="login-button">
           <span>Entrar</span>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="5" y1="12" x2="19" y2="12"/>
-            <polyline points="12 5 19 12 12 19"/>
-          </svg>
+          <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg>
         </button>
       </form>
       
       <div class="login-footer">
-        <a href="#" class="forgot-password">Esqueceu a senha?</a>
-        <span class="separator">•</span>
-        <a href="#" id="show-register" class="register-link">Criar conta</a>
+        <a href="#" id="show-recover" class="forgot-password">Esqueceu a senha?</a>
       </div>
       <div class="version-info">v0.0.0</div>
     </div>
 
-    <!-- Formulário de Cadastro -->
-    <div class="login-box register-box hidden">
+    <!-- Formulário de Recuperação de Senha -->
+    <div class="login-box recover-box hidden">
       <div class="login-header">
         <img class="logo-icon" src="../../assets/garantia.ico" alt="Companion Logo">
-        <h1>Criar Conta</h1>
+        <h1>Recuperar Senha</h1>
       </div>
-      
-      <form id="register-form" class="login-form">
-        <div class="form-row">
-          <div class="form-group">
-            <label for="reg-name">Nome Completo</label>
-            <div class="input-wrapper">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
-              <input type="text" id="reg-name" name="name" placeholder="Nome completo" required>
-            </div>
-          </div>
 
-          <div class="form-group">
-            <label for="reg-email">Email</label>
-            <div class="input-wrapper">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                <polyline points="22,6 12,13 2,6"/>
-              </svg>
-              <input type="email" id="reg-email" name="email" placeholder="Seu email" required>
-            </div>
-          </div>
-        </div>
-        
-        <div class="form-row">
-          <div class="form-group">
-            <label for="reg-password">Senha</label>
-            <div class="input-wrapper">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-              <input type="password" id="reg-password" name="password" placeholder="Min. 6 caracteres" required minlength="6">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="reg-confirm-password">Confirmar</label>
-            <div class="input-wrapper">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-              <input type="password" id="reg-confirm-password" name="confirm-password" placeholder="Repita a senha" required>
-            </div>
+      <!-- Etapa 1: pedir o codigo por e-mail -->
+      <form id="recover-request-form" class="login-form">
+        <div class="form-group">
+          <label for="recover-email">Email</label>
+          <div class="input-wrapper">
+            <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM203.43,64,128,133.15,52.57,64ZM216,192H40V74.19l82.59,75.71a8,8,0,0,0,10.82,0L216,74.19V192Z"/></svg>
+            <input type="email" id="recover-email" name="recover-email" placeholder="Digite seu email" required autofocus>
           </div>
         </div>
 
-        <div id="register-error-message" class="error-message"></div>
-        <div id="register-success-message" class="success-message"></div>
-        
+        <div id="recover-request-error" class="error-message"></div>
+        <div id="recover-request-success" class="success-message"></div>
+
         <button type="submit" class="login-button">
-          <span>Cadastrar</span>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-            <polyline points="22 4 12 14.01 9 11.01"/>
-          </svg>
+          <span>Enviar código</span>
         </button>
       </form>
-      
+
+      <!-- Etapa 2: digitar o codigo recebido por e-mail e a nova senha -->
+      <form id="recover-confirm-form" class="login-form hidden">
+        <div class="form-group">
+          <label for="recover-code">Código recebido por email</label>
+          <div class="input-wrapper">
+            <input type="text" id="recover-code" name="recover-code" placeholder="000000" maxlength="6" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="recover-new-password">Nova senha</label>
+          <div class="input-wrapper">
+            <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M208,80H176V56a48,48,0,0,0-96,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM96,56a32,32,0,0,1,64,0V80H96ZM208,208H48V96H208V208Zm-68-56a12,12,0,1,1-12-12A12,12,0,0,1,140,152Z"/></svg>
+            <input type="password" id="recover-new-password" name="recover-new-password" placeholder="Min. 6 caracteres" required minlength="6">
+          </div>
+        </div>
+
+        <div id="recover-confirm-error" class="error-message"></div>
+        <div id="recover-confirm-success" class="success-message"></div>
+
+        <button type="submit" class="login-button">
+          <span>Trocar senha</span>
+        </button>
+      </form>
+
       <div class="login-footer">
-        <a href="#" id="show-login" class="register-link">Já tem conta? Faça login</a>
+        <a href="#" id="show-login-from-recover" class="register-link">Voltar ao login</a>
       </div>
       <div class="version-info">v0.0.0</div>
     </div>
   </div>
-  
+
   <script src="login-renderer.js"></script>
 </body>
 </html>

@@ -183,10 +183,20 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderPedidoTabs() {
     if (!tabsContainer) return;
     tabsContainer.innerHTML = '';
-    
+
+    // Com um único pedido aberto a barra de abas some, e o "+" migra pro
+    // topo (ao lado dos controles da janela) — a barra só faz sentido
+    // quando há mais de uma aba pra escolher entre elas.
+    const tabsBarEl = document.querySelector('.pedido-tabs-bar');
+    const headerAddBtn = document.getElementById('add-pedido-tab-header');
+    const showBar = pedidoTabs.length > 1;
+    if (tabsBarEl) tabsBarEl.style.display = showBar ? '' : 'none';
+    if (headerAddBtn) headerAddBtn.style.display = showBar ? 'none' : 'flex';
+
     pedidoTabs.forEach(tab => {
       const tabEl = document.createElement('div');
       tabEl.className = `pedido-tab ${tab.id === activePedidoTabId ? 'active' : ''}`;
+      tabEl.dataset.tabId = tab.id;
       const numeroPedido = (tab.data && tab.data.pedido) ? tab.data.pedido : tab.number;
       tabEl.innerHTML = `
         <span class="tab-title" style="white-space: nowrap;">${numeroPedido}</span>
@@ -266,6 +276,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Limpa e Preenche
     limparTodosCampos();
+    ultimaBuscaPedido = normalizarNumeroPedidoBusca(nextTab?.data?.pedido || '');
+    ultimaBuscaMomento = Date.now();
     if (nextTab && nextTab.data && Object.keys(nextTab.data).length > 0) {
       preencherPedidoNaTela(nextTab.data, nextTab.data.pedido);
       
@@ -448,30 +460,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function ocultarAreaDadosPedido() {
-    const scrollArea = document.getElementById('form-scrollable-area');
-    if (scrollArea) scrollArea.style.setProperty('display', 'none', 'important');
-  }
-
-  function temCertificadoPedidoSelecionado() {
-    const select = document.getElementById('pedido-certificado-select');
-    if (!select) return false;
-    const option = select.options?.[select.selectedIndex];
-    const valor = String(option?.value || select.value || '').trim();
-    const texto = String(option?.textContent || '').trim();
-    return Boolean(valor) && !/^selecione/i.test(texto);
-  }
-
-  function atualizarVisibilidadeDadosPedidoPorCertificado() {
-    const numeroPedido = String(document.getElementById('pedido-numero-input')?.value || '').trim();
-    if (numeroPedido) {
-      mostrarAreaDadosPedido(true);
-    } else if (temCertificadoPedidoSelecionado()) {
-      mostrarAreaDadosPedido();
-    } else {
-      ocultarAreaDadosPedido();
-    }
-  }
+  // ocultarAreaDadosPedido, temCertificadoPedidoSelecionado e
+  // atualizarVisibilidadeDadosPedidoPorCertificado sao definidas uma unica
+  // vez, em escopo de modulo (mais abaixo neste arquivo) — hoisted, entao
+  // ja estao disponiveis aqui. Ter uma segunda copia local aqui era a causa
+  // de comportamento inconsistente (cada copia com uma regra diferente).
 
   if (addTabBtn && addTabBtn.dataset.bound !== '1' && !addTabBtn.getAttribute('onclick')) {
     addTabBtn.dataset.bound = '1';
@@ -507,14 +500,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (window.electronAPI && window.electronAPI.setWindowPointerIdle) window.electronAPI.setWindowPointerIdle(false);
     });
 
-    mainContent.addEventListener('mouseleave', () => {
+    mainContent.addEventListener('mouseleave', (e) => {
       const modal = document.getElementById('custom-modal');
       const isModalActive = modal && modal.classList.contains('active');
       const isPickerActive = document.querySelector('.picker-overlay') !== null;
+      const isPopoverActive = Boolean(statusPopoverAtivo);
       
+      // Se o cursor ainda estiver dentro das coordenadas da janela, não colapsa
+      if (e.clientX > 0 && e.clientX < window.innerWidth && e.clientY > 0 && e.clientY < window.innerHeight) {
+        return;
+      }
+
       if (isLocked) {
         if (window.electronAPI && window.electronAPI.setWindowPointerIdle) window.electronAPI.setWindowPointerIdle(true);
-      } else if (!isModalActive && !isPickerActive && !deveManterJanelaAbertaPorInteracao()) {
+      } else if (!isModalActive && !isPickerActive && !isPopoverActive && !deveManterJanelaAbertaPorInteracao()) {
         if (window.electronAPI && window.electronAPI.collapseWindow) window.electronAPI.collapseWindow();
       }
     });
@@ -531,16 +530,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateLockIcon(locked, animar = false) {
     const svg = locked ? `
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-      </svg>
+      <svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M208,80H176V56a48,48,0,0,0-96,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM96,56a32,32,0,0,1,64,0V80H96ZM208,208H48V96H208V208Zm-68-56a12,12,0,1,1-12-12A12,12,0,0,1,140,152Z"/></svg>
     ` : `
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-        <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
-        <line x1="1" y1="1" x2="23" y2="23"></line>
-      </svg>
+      <svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M53.92,34.62A8,8,0,1,0,42.08,45.38L61.32,66.55C25,88.84,9.38,123.2,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208a127.11,127.11,0,0,0,52.07-10.83l22,24.21a8,8,0,1,0,11.84-10.76Zm47.33,75.84,41.67,45.85a32,32,0,0,1-41.67-45.85ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.16,133.16,0,0,1,25,128c4.69-8.79,19.66-33.39,47.35-49.38l18,19.75a48,48,0,0,0,63.66,70l14.73,16.2A112,112,0,0,1,128,192Zm6-95.43a8,8,0,0,1,3-15.72,48.16,48.16,0,0,1,38.77,42.64,8,8,0,0,1-7.22,8.71,6.39,6.39,0,0,1-.75,0,8,8,0,0,1-8-7.26A32.09,32.09,0,0,0,134,96.57Zm113.28,34.69c-.42.94-10.55,23.37-33.36,43.8a8,8,0,1,1-10.67-11.92A132.77,132.77,0,0,0,231.05,128a133.15,133.15,0,0,0-23.12-30.77C185.67,75.19,158.78,64,128,64a118.37,118.37,0,0,0-19.36,1.57A8,8,0,1,1,106,49.79,134,134,0,0,1,128,48c34.88,0,66.57,13.26,91.66,38.35,18.83,18.83,27.3,37.62,27.65,38.41A8,8,0,0,1,247.31,131.26Z"/></svg>
     `;
     if (lockBtn) {
       lockBtn.innerHTML = svg;
@@ -559,24 +551,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Toggle lock
+  function alternarFixacaoJanela(animar = true) {
+    isLocked = !isLocked;
+    if (window.electronAPI && window.electronAPI.toggleLock) window.electronAPI.toggleLock(isLocked);
+    if (window.electronAPI && window.electronAPI.setWindowPointerIdle) window.electronAPI.setWindowPointerIdle(false);
+    updateLockIcon(isLocked, animar);
+  }
+
+  // Toggle lock no botão
   if (lockBtn) {
     lockBtn.addEventListener('click', () => {
-      isLocked = !isLocked;
-      if (window.electronAPI && window.electronAPI.toggleLock) window.electronAPI.toggleLock(isLocked);
-      if (window.electronAPI && window.electronAPI.setWindowPointerIdle) window.electronAPI.setWindowPointerIdle(false);
-      updateLockIcon(isLocked, true);
+      alternarFixacaoJanela(true);
     });
   }
 
+  // Duplo clique com o botão direito no mainContent para fixar/manter a tela aberta
   if (mainContent) {
-    mainContent.addEventListener('dblclick', (event) => {
+    let ultimoCliqueDireito = 0;
+    const INTERVALO_DUPLO_CLIQUE = 350;
+
+    mainContent.addEventListener('mousedown', (event) => {
+      if (event.button !== 2) return; // 2 = botão direito
       if (event.target?.closest?.('#lock-btn, #close-btn')) return;
 
-      isLocked = !isLocked;
-      if (window.electronAPI && window.electronAPI.toggleLock) window.electronAPI.toggleLock(isLocked);
-      if (window.electronAPI && window.electronAPI.setWindowPointerIdle) window.electronAPI.setWindowPointerIdle(false);
-      updateLockIcon(isLocked, true);
+      const agora = Date.now();
+      if (agora - ultimoCliqueDireito < INTERVALO_DUPLO_CLIQUE) {
+        ultimoCliqueDireito = 0;
+        event.preventDefault();
+        alternarFixacaoJanela(true);
+      } else {
+        ultimoCliqueDireito = agora;
+      }
+    });
+
+    mainContent.addEventListener('contextmenu', (event) => {
+      if (event.target?.closest?.('#lock-btn, #close-btn')) return;
+      event.preventDefault();
     });
   }
 
@@ -612,7 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return certificadosDataCache;
     }
 
-    const selectPedido = document.querySelector('.info-row-vertical select');
+    const selectPedido = document.getElementById('pedido-certificado-select');
     if (!selectPedido) return [];
 
     const fallback = [];
@@ -731,38 +741,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (modo === 'update') {
       modoEl.innerHTML = `
         <span class="config-cert-mode-icon" aria-hidden="true">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 20h9"></path>
-            <path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z"></path>
-          </svg>
+          <svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg>
         </span>
         <span class="config-cert-mode-text">UPDATE</span>
       `;
       botao.title = 'Atualizar certificado';
       botao.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 20h9"></path>
-          <path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z"></path>
-        </svg>
+        <svg width="16" height="16" aria-hidden="true" viewBox="0 0 256 256" fill="currentColor"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg>
       `;
       return;
     }
 
     modoEl.innerHTML = `
       <span class="config-cert-mode-icon" aria-hidden="true">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
+        <svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg>
       </span>
       <span class="config-cert-mode-text">NEW</span>
     `;
     botao.title = 'Adicionar certificado';
     botao.innerHTML = `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <line x1="12" y1="5" x2="12" y2="19"></line>
-        <line x1="5" y1="12" x2="19" y2="12"></line>
-      </svg>
+      <svg width="16" height="16" aria-hidden="true" viewBox="0 0 256 256" fill="currentColor"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg>
     `;
   }
 
@@ -967,7 +965,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Carregar certificados no dropdown
   async function carregarCertificados() {
-    const certificadoSelect = document.querySelector('.info-row-vertical select');
+    const certificadoSelect = document.getElementById('pedido-certificado-select');
     if (!certificadoSelect) return;
 
     try {
@@ -1053,7 +1051,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Atualiza o preço ao selecionar certificado
   const pedidoInputMain = document.getElementById('pedido-numero-input');
 
-  const certificadoSelect = document.querySelector('.info-row-vertical select');
+  const certificadoSelect = document.getElementById('pedido-certificado-select');
   const certLinkCopyBtn = document.getElementById('cert-link-copy-btn');
   const certSelectTrigger = document.getElementById('pedido-cert-trigger');
   const certSelectTriggerText = document.getElementById('pedido-cert-trigger-text');
@@ -1206,18 +1204,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // - Se identificar CNPJ (ou variação), mostra Dados Empresa
     // - Se identificar apenas CPF, oculta Dados Empresa
     // - Sem identificação clara, mantém visível
-    if (temCnpj) {
-      sectionEmpresa.style.display = 'block';
-      return;
-    }
+    const soCpf = temCpf && !temCnpj;
+    sectionEmpresa.style.display = soCpf ? 'none' : '';
 
-    if (temCpf && !temCnpj) {
-      sectionEmpresa.style.display = 'none';
-      return;
-    }
-
-    sectionEmpresa.style.display = 'block';
+    // No layout de rotulo a esquerda as secoes nao trocam de coluna: Titular e
+    // Empresa descem em lista, e Comentario/Anexos ficam sempre na faixa de
+    // baixo. Ocultar Empresa apenas devolve a altura dela para essa faixa.
+    window.__attachments?.refresh?.();
   }
+  window.atualizarVisibilidadeSecaoEmpresaPorCertificado = atualizarVisibilidadeSecaoEmpresaPorCertificado;
 
   if (certificadoSelect) {
     certificadoSelect.addEventListener('change', (e) => {
@@ -1351,11 +1346,11 @@ document.addEventListener('DOMContentLoaded', () => {
       card.innerHTML = `
         <div class="picker-header">
           <button type="button" class="picker-year-btn" id="picker-btn-prev-year">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            <svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>
           </button>
           <span class="picker-year-title" id="picker-txt-year">${anoVisualizado}</span>
           <button type="button" class="picker-year-btn" id="picker-btn-next-year">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            <svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
           </button>
         </div>
         <div class="picker-months-grid">
@@ -1496,11 +1491,11 @@ document.addEventListener('DOMContentLoaded', () => {
       card.innerHTML = `
         <div class="picker-header">
           <button type="button" class="picker-year-btn" id="picker-btn-prev-month">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            <svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>
           </button>
           <span class="picker-year-title" id="picker-txt-title">${mesesNomes[mesVisualizado - 1]} ${anoVisualizado}</span>
           <button type="button" class="picker-year-btn" id="picker-btn-next-month">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            <svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
           </button>
         </div>
         
@@ -1591,11 +1586,22 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.appendChild(overlay);
   }
 
+  // Campos de data que abrem o calendario proprio do app (o mesmo da Consulta)
+  // em vez do seletor nativo do Chromium.
+  const CAMPOS_DATA_CALENDARIO = new Set([
+    'consulta-data-de',
+    'consulta-data-ate',
+    'pessoa-nascimento',
+    'pedido-data-input',
+  ]);
+
   function inicializarIconesDateTimeComPicker() {
-    const wrappers = document.querySelectorAll('.input-icon-embedded');
+    // '.input-icon-embedded' cobre Consulta/Indicadores; '#pedido .pf-ctl' cobre
+    // a aba Dados Pedido, que usa a marcacao propria dela.
+    const wrappers = document.querySelectorAll('.input-icon-embedded, #pedido .pf-ctl');
     wrappers.forEach((wrapper) => {
       const input = wrapper.querySelector('input[type="date"], input[type="time"], input[type="month"]');
-      const icon = wrapper.querySelector('.icon.icon-embedded');
+      const icon = wrapper.querySelector('.icon.icon-embedded, .pf-icon');
       if (!input || !icon) return;
       if (icon.dataset.pickerBound === '1') return;
       icon.dataset.pickerBound = '1';
@@ -1611,7 +1617,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
 
-        if (input.type === 'date' && (input.id === 'consulta-data-de' || input.id === 'consulta-data-ate' || input.id === 'pessoa-nascimento')) {
+        if (input.type === 'date' && CAMPOS_DATA_CALENDARIO.has(input.id)) {
           setTimeout(() => {
             abrirPickerDataPersonalizado(input);
           }, 10);
@@ -1632,7 +1638,12 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       icon.addEventListener('click', abrirPicker);
-      if (input.type === 'month' || (input.type === 'date' && (input.id === 'consulta-data-de' || input.id === 'consulta-data-ate' || input.id === 'pessoa-nascimento'))) {
+
+      // Clicar no proprio campo tambem abre o calendario, mas so quando ele e
+      // somente leitura — num campo digitavel (ex.: a Data do pedido) isso
+      // roubaria o clique de quem quer digitar. Ali vale so o icone.
+      const soLeitura = input.readOnly;
+      if (input.type === 'month' || (input.type === 'date' && CAMPOS_DATA_CALENDARIO.has(input.id) && soLeitura)) {
         input.addEventListener('click', abrirPicker);
         input.style.cursor = 'pointer';
       }
@@ -1735,14 +1746,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     const loadingIcon = document.getElementById('cnpj-loading-icon');
-    const normalIcon = document.getElementById('cnpj-icon');
+    // O campo CNPJ tem um unico icone (o atalho para a Receita); durante a
+    // consulta ele da lugar ao indicador de carregamento, no mesmo ponto.
+    const normalIcon = document.getElementById('cnpj-receita-btn');
     const warningDiv = document.getElementById('empresa-inapta-warning');
-    
+
     try {
       // Mostrar loading
       if (loadingIcon && normalIcon) {
         normalIcon.style.display = 'none';
-        loadingIcon.style.display = 'block';
+        loadingIcon.style.display = 'flex';
       }
       
       console.log('Buscando dados do CNPJ:', cnpjLimpo);
@@ -1787,54 +1800,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
       
-      // Verificar se empresa está inapta e atualizar ícone de situação
-      const situacao = dados.descricao_situacao_cadastral?.toUpperCase() || '';
-      const situacaoIcon = document.getElementById('situacao-icon');
-      
-      if (warningDiv) {
-        if (situacao.includes('INAPTA')) {
-          warningDiv.style.display = 'block';
-          console.warn('EMPRESA INAPTA!');
-        } else {
-          warningDiv.style.display = 'none';
-        }
-      }
-      
-      // Atualizar ícone de situação cadastral
-      if (situacaoIcon) {
-        situacaoIcon.style.display = 'block';
-        
-        if (situacao.includes('ATIVA')) {
-          // ÃƒÂcone de check verde para empresa ativa
-          situacaoIcon.innerHTML = `
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="3">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M9 12l2 2 4-4"/>
-            </svg>
-          `;
-          situacaoIcon.style.color = '#34c759';
-        } else if (situacao.includes('INAPTA') || situacao.includes('SUSPENSA') || situacao.includes('BAIXADA')) {
-          // ÃƒÂcone de X vermelho para empresa inativa
-          situacaoIcon.innerHTML = `
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff3b30" stroke-width="3">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="15" y1="9" x2="9" y2="15"/>
-              <line x1="9" y1="9" x2="15" y2="15"/>
-            </svg>
-          `;
-          situacaoIcon.style.color = '#ff3b30';
-        } else {
-          // ÃƒÂcone neutro para outros casos
-          situacaoIcon.innerHTML = `
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff9500" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-          `;
-          situacaoIcon.style.color = '#ff9500';
-        }
-      }
+      // Aviso de inapta e icone de situacao saem do valor da situacao
+      // cadastral — a mesma funcao roda ao recarregar um pedido salvo.
+      atualizarSituacaoEmpresa(dados.descricao_situacao_cadastral);
       
       return dados;
     } catch (error) {
@@ -1850,7 +1818,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Restaurar ícone normal
       if (loadingIcon && normalIcon) {
         loadingIcon.style.display = 'none';
-        normalIcon.style.display = 'block';
+        normalIcon.style.display = '';
       }
     }
   }
@@ -1881,8 +1849,52 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         e.target.setSelectionRange(cursorPos, cursorPos);
       }
+
+      // Apagar o CNPJ apaga a empresa junto: senao razao social, endereco e
+      // situacao continuariam na tela pertencendo a um CNPJ que nao esta mais
+      // ali, e seriam salvos assim.
+      if (unmaskCNPJ(newValue).length === 0) {
+        limparCamposEmpresa();
+        atualizarBotaoReceitaCnpj();
+      }
     });
-    
+
+    // Consulta o cartao CNPJ no site da Receita Federal
+    const receitaBtn = document.getElementById('cnpj-receita-btn');
+
+    function atualizarBotaoReceitaCnpj() {
+      if (!receitaBtn) return;
+      const valido = unmaskCNPJ(cnpjInput.value).length === 14;
+      receitaBtn.classList.toggle('is-disabled', !valido);
+      receitaBtn.title = valido
+        ? 'Consultar o cartão CNPJ na Receita Federal'
+        : 'Preencha o CNPJ para consultar na Receita Federal';
+    }
+
+    async function abrirCartaoCnpjReceita() {
+      const cnpjLimpo = unmaskCNPJ(cnpjInput.value);
+      if (cnpjLimpo.length !== 14) return;
+      const url = `https://solucoes.receita.fazenda.gov.br/Servicos/cnpjreva/Cnpjreva_Solicitacao.asp?cnpj=${cnpjLimpo}`;
+      try {
+        await window.electronAPI?.abrirLinkExterno?.(url);
+      } catch (error) {
+        console.error('Erro ao abrir consulta de CNPJ na Receita:', error);
+      }
+    }
+
+    if (receitaBtn) {
+      receitaBtn.addEventListener('click', abrirCartaoCnpjReceita);
+      receitaBtn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          abrirCartaoCnpjReceita();
+        }
+      });
+      cnpjInput.addEventListener('input', atualizarBotaoReceitaCnpj);
+      atualizarBotaoReceitaCnpj();
+    }
+
+
     // Buscar dados ao sair do campo (blur)
     cnpjInput.addEventListener('blur', async () => {
       const cnpj = cnpjInput.value;
@@ -1972,72 +1984,106 @@ async function buscarDadosPorCPF(cpf) {
     // Mostrar loading
     if (loadingIcon && normalIcon) {
       normalIcon.style.display = 'none';
-      loadingIcon.style.display = 'block';
+      // 'flex' e nao 'block': .pf-icon centraliza o conteudo com inline-flex, e
+      // com display:block o anel do spinner ficava fora de centro.
+      loadingIcon.style.display = 'flex';
     }
     
-    console.log('[info] Buscando dados do CPF na API:', cpfLimpo);
+    console.log('[info] Buscando histórico do CPF no banco de dados:', cpfLimpo);
     
-    // Buscar na API da ReceitaWS
-    const response = await fetch(`https://www.receitaws.com.br/v1/cpf/${cpfLimpo}`);
+    // Busca pedidos anteriores deste CPF no banco de dados
+    const resultado = await window.electronAPI.buscarPedidos({ busca: cpfLimpo });
     
-    if (!response.ok) {
-      throw new Error(`Erro na API: ${response.status}`);
-    }
-    
-    const dados = await response.json();
-    console.log('[info] Dados recebidos da API:', dados);
-    
-    // Verificar se encontrou dados válidos
-    if (dados.status === 'ERROR' || !dados.nome) {
-      console.log('[aviso] CPF não encontrado ou inválido');
+    if (resultado?.success && resultado.data?.length) {
+      // Pega o pedido mais recente com esse CPF
+      const pedidosOrdenados = [...resultado.data].sort((a, b) => (b.id || 0) - (a.id || 0));
+      const p = pedidosOrdenados[0];
+      
+      console.log('[ok] Dados do cliente encontrados no banco:', p);
+      
+      // Preencher o campo nome
+      const nomeInput = document.getElementById('pessoa-nome');
+      if (nomeInput && p.nome && !nomeInput.value) {
+        nomeInput.value = p.nome;
+        nomeInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      
+      // Preencher data de nascimento
+      const nascimentoInput = document.getElementById('pessoa-nascimento');
+      if (nascimentoInput && p.nascimento && !nascimentoInput.value) {
+        nascimentoInput.value = formatarDataISO(p.nascimento) || p.nascimento;
+        nascimentoInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      
+      // Preencher nome da mãe
+      const maeInput = document.getElementById('pessoa-mae');
+      if (maeInput && p.nome_mae && !maeInput.value) {
+        maeInput.value = p.nome_mae;
+        maeInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      // Preencher telefone
+      const telInput = document.getElementById('pessoa-telefone');
+      if (telInput && p.telefone && !telInput.value) {
+        telInput.value = maskTelefone(p.telefone);
+        telInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      // Preencher e-mail
+      const emailInput = document.getElementById('pessoa-email');
+      if (emailInput && p.email && !emailInput.value) {
+        emailInput.value = p.email;
+        emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      // Preencher RG
+      const rgInput = document.getElementById('pessoa-rg');
+      if (rgInput && p.rg && !rgInput.value) {
+        rgInput.value = p.rg;
+        rgInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      // Preencher Órgão RG
+      const orgaoInput = document.getElementById('pessoa-orgao-rg');
+      if (orgaoInput && p.orgao_rg && !orgaoInput.value) {
+        orgaoInput.value = p.orgao_rg;
+        orgaoInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      // Preencher CNH
+      const cnhInput = document.getElementById('pessoa-cnh');
+      if (cnhInput && p.cnh && !cnhInput.value) {
+        cnhInput.value = p.cnh;
+        cnhInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      // Preencher Código de Segurança CNH
+      const codSegInput = document.getElementById('pessoa-cod-seg-cnh');
+      if (codSegInput && p.cod_seg_cnh && !codSegInput.value) {
+        codSegInput.value = p.cod_seg_cnh;
+        codSegInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      // Preencher PIS / CEI
+      const pisInput = document.getElementById('pessoa-pis');
+      if (pisInput && (p.pis_cei || p.pis) && !pisInput.value) {
+        pisInput.value = p.pis_cei || p.pis;
+        pisInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      return p;
+    } else {
+      console.log('[aviso] Nenhum cadastro anterior encontrado para este CPF no banco.');
       return null;
     }
-    
-    console.log('[ok] Dados da pessoa encontrados:', dados);
-    
-    // Preencher o campo nome
-    const nomeInput = document.getElementById('pessoa-nome');
-    
-    if (nomeInput && dados.nome) {
-      nomeInput.value = dados.nome;
-      nomeInput.dispatchEvent(new Event('input', { bubbles: true }));
-      console.log('[ok] Nome preenchido:', dados.nome);
-    }
-    
-    // Preencher data de nascimento se disponível
-    if (dados.nascimento) {
-      const nascimentoInput = document.getElementById('pessoa-nascimento');
-      if (nascimentoInput) {
-        // Converter de DD/MM/YYYY para YYYY-MM-DD
-        const partes = dados.nascimento.split('/');
-        if (partes.length === 3) {
-          const dataFormatada = `${partes[2]}-${partes[1]}-${partes[0]}`;
-          nascimentoInput.value = dataFormatada;
-          nascimentoInput.dispatchEvent(new Event('input', { bubbles: true }));
-          console.log('[ok] Data de nascimento preenchida:', dataFormatada);
-        }
-      }
-    }
-    
-    // Preencher nome da mãe se disponível
-    if (dados.nome_mae) {
-      const maeInput = document.getElementById('pessoa-mae');
-      if (maeInput) {
-        maeInput.value = dados.nome_mae;
-        maeInput.dispatchEvent(new Event('input', { bubbles: true }));
-        console.log('[ok] Nome da mãe preenchido:', dados.nome_mae);
-      }
-    }
-    
-    return dados;
   } catch (error) {
-    console.error('[erro] Erro ao buscar dados por CPF:', error);
+    console.error('[erro] Erro ao buscar dados do CPF no banco:', error);
     return null;
   } finally {
     // Restaurar ícone normal
     if (loadingIcon && normalIcon) {
       loadingIcon.style.display = 'none';
-      normalIcon.style.display = 'block';
+      normalIcon.style.display = '';
     }
   }
 }
@@ -2169,15 +2215,15 @@ const statusText = statusElement?.querySelector('.status-text');
 const pedidoSaveBtn = document.getElementById('pedido-save-btn');
 const pedidoClearBtn = document.getElementById('pedido-clear-btn');
 
-// ÃƒÂcones SVG para diferentes estados
+// Ícones SVG Phosphor para diferentes estados (viewBox 0 0 256 256)
 const icons = {
-  idle: `<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>`,
-  saving: `<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`,
-  saved: `<polyline points="20 6 9 17 4 12"/>`,
-  updated: `<path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/>`,
-  dirty: `<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>`,
-  cleared: `<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/>`,
-  error: `<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`
+  idle: `<path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/>`,
+  saving: `<path d="M232,128a104,104,0,0,1-208,0c0-41,23.81-78.36,60.66-95.27a8,8,0,0,1,6.68,14.54C60.15,61.59,40,93.27,40,128a88,88,0,0,0,176,0c0-34.73-20.15-66.41-51.34-80.73a8,8,0,0,1,6.68-14.54C208.19,49.64,232,87,232,128Z"/>`,
+  saved: `<path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/>`,
+  updated: `<path d="M224,48V96a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h28.69L182.06,73.37a79.56,79.56,0,0,0-56.13-23.43h-.45A79.52,79.52,0,0,0,69.59,72.71,8,8,0,0,1,58.41,61.27a96,96,0,0,1,135,.79L208,76.69V48a8,8,0,0,1,16,0ZM186.41,183.29a80,80,0,0,1-112.47-.66L59.31,168H88a8,8,0,0,0,0-16H40a8,8,0,0,0-8,8v48a8,8,0,0,0,16,0V179.31l14.63,14.63A95.43,95.43,0,0,0,130,222.06h.53a95.36,95.36,0,0,0,67.07-27.33,8,8,0,0,0-11.18-11.44Z"/>`,
+  dirty: `<path d="M227.31,73.37,182.63,28.69a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.69,147.31,64l24-24L216,84.69Z"/>`,
+  cleared: `<path d="M225,80.4,183.6,39a24,24,0,0,0-33.94,0L31,157.66a24,24,0,0,0,0,33.94l30.06,30.06A8,8,0,0,0,66.74,224H216a8,8,0,0,0,0-16h-84.7L225,114.34A24,24,0,0,0,225,80.4ZM108.68,208H70.05L42.33,180.28a8,8,0,0,1,0-11.31L96,115.31,148.69,168Zm105-105L160,156.69,107.31,104,161,50.34a8,8,0,0,1,11.32,0l41.38,41.38a8,8,0,0,1,0,11.31Z"/>`,
+  error: `<path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,172Z"/>`
 };
 
 let ultimoErroSalvamento = '';
@@ -2247,21 +2293,30 @@ function coletarDadosFormulario(allowEmpty = false) {
   if (!pedidoNumero && !allowEmpty) return null;
   
   if ((!currentUser || !currentUser.email) && !allowEmpty) {
-    console.error('Erro ao salvar o pedido: usurio no logado');
+    console.error('[coletarDadosFormulario] Erro ao coletar pedido: usuário não logado');
     return null;
+  }
+
+  let statusColetado = 'DIGITAÇÃO';
+  const radios = document.querySelectorAll('#pedido input[name="status"]');
+  for (const r of radios) {
+    if (r.checked) {
+      statusColetado = normalizarStatus(r.value);
+      break;
+    }
   }
   
   const data = {
     usuario: currentUser?.email || null,
     pedido: pedidoNumero,
-    data: document.querySelector('.pedido-header .pedido-field:nth-child(2) input')?.value || null,
-    hora: document.querySelector('.pedido-header .pedido-field:nth-child(3) input')?.value || null,
-    versao: document.querySelector('.info-row-vertical select')?.value || null,
-    modalidade: document.querySelector('.info-grid .info-item:nth-child(1) select')?.value || null,
-    venda: document.querySelector('.info-grid .info-item:nth-child(2) select')?.value === 'sim' ? 'sim' : 'nao',
+    data: document.getElementById('pedido-data-input')?.value || null,
+    hora: document.getElementById('pedido-hora-input')?.value || null,
+    versao: document.getElementById('pedido-certificado-select')?.value || null,
+    modalidade: document.getElementById('pedido-modalidade-select')?.value || null,
+    venda: document.getElementById('pedido-venda-select')?.value === 'sim' ? 'sim' : 'nao',
     preco_certificado: parseMoedaParaNumero(document.getElementById('pedido-preco-input')?.value),
     comissao: parseMoedaParaNumero(document.getElementById('pedido-comissao-input')?.value),
-    status: document.querySelector('input[name="status"]:checked')?.value || null,
+    status: statusColetado,
     
     // Dados Pessoais
     nome: document.getElementById('pessoa-nome')?.value || null,
@@ -2297,9 +2352,15 @@ function coletarDadosFormulario(allowEmpty = false) {
     diretorio: document.getElementById('config-pasta')?.value || null,
     pasta: document.getElementById('config-pasta-cliente')?.value || null,
 
-    // Comentrios
+    // Comentarios
     comentarios: document.getElementById('pedido-comentarios')?.value || null,
   };
+
+  console.log('[coletarDadosFormulario] Dados coletados com sucesso:', {
+    pedido: data.pedido,
+    usuario: data.usuario,
+    status: data.status
+  });
 
   return data;
 }
@@ -2347,6 +2408,7 @@ function definirBaselinePedidoAtual(dados = obterSnapshotPedidoAtual()) {
   currentTab.baseline = snapshot;
   currentTab.data = snapshot;
   currentTab.dirty = false;
+  atualizarStatusSalvamento(currentPedidoId ? 'saved' : 'idle', currentPedidoId ? 'Salvo' : 'Pronto');
 }
 
 function atualizarEstadoAlteracaoPedidoAtual({ updateStatus = true } = {}) {
@@ -2388,19 +2450,40 @@ function possuiAlteracoesPendentesExcetoPedido() {
 
 async function salvarPedido(options = {}) {
   const { force = false } = options;
-  if (isSaving) return false;
+  console.log('[salvarPedido] Tentativa de salvar pedido iniciada.', {
+    force,
+    isSaving,
+    currentPedidoId,
+    currentUser: currentUser?.email
+  });
+
+  if (isSaving) {
+    console.warn('[salvarPedido] Salvamento já em andamento. Ignorando clique duplicado.');
+    return false;
+  }
 
   if (!currentUser?.email) {
+    console.log('[salvarPedido] Usuário atual não carregado. Tentando obter sessão...');
     await carregarUsuarioLogado();
+    console.log('[salvarPedido] Sessão após recarga:', currentUser?.email);
   }
   
   const dados = coletarDadosFormulario();
+  console.log('[salvarPedido] Dados obtidos do formulário:', dados);
+
+  if (!dados) {
+    console.error('[salvarPedido] Falha na coleta de dados: formulário retornou null.');
+    atualizarStatusSalvamento('error', 'Preencha o pedido');
+    return false;
+  }
+
   const numPedido = dados?.pedido?.trim();
   const dataPedido = dados?.data?.trim();
   const horaPedido = dados?.hora?.trim();
   const certificadoPedido = dados?.versao?.trim();
 
   if (!numPedido) {
+    console.warn('[salvarPedido] Validação falhou: Número do pedido vazio.');
     if (window.toastNotifier) {
       window.toastNotifier.warning('Por favor, preencha o número do Pedido!');
     }
@@ -2409,6 +2492,7 @@ async function salvarPedido(options = {}) {
   }
 
   if (!dataPedido) {
+    console.warn('[salvarPedido] Validação falhou: Data do pedido vazia.');
     if (window.toastNotifier) {
       window.toastNotifier.warning('Por favor, preencha a Data do pedido!');
     }
@@ -2417,6 +2501,7 @@ async function salvarPedido(options = {}) {
   }
 
   if (!horaPedido) {
+    console.warn('[salvarPedido] Validação falhou: Hora do pedido vazia.');
     if (window.toastNotifier) {
       window.toastNotifier.warning('Por favor, preencha a Hora do pedido!');
     }
@@ -2425,6 +2510,7 @@ async function salvarPedido(options = {}) {
   }
 
   if (!certificadoPedido) {
+    console.warn('[salvarPedido] Validação falhou: Certificado não selecionado.');
     if (window.toastNotifier) {
       window.toastNotifier.warning('Por favor, selecione o Certificado!');
     }
@@ -2438,30 +2524,40 @@ async function salvarPedido(options = {}) {
   if (pedidoSaveBtn) pedidoSaveBtn.disabled = true;
   
   try {
-    const status = dados.status;
+    const status = normalizarStatus(dados.status);
+    console.log(`[salvarPedido] Status processado: "${status}" (original: "${dados.status}")`);
+
     // Se o status for finalizador, pede confirmação ANTES de salvar
-    if (status === 'aprovado' || status === 'cancelado') {
+    if (status === 'APROVADO' || status === 'CANCELADO') {
+      console.log(`[salvarPedido] Exibindo modal de confirmação para status finalizador: ${status}`);
       const confirmado = await showCustomModal({
         title: 'Finalizar Pedido',
-        message: `Deseja finalizar este pedido como ${status.toUpperCase()}? Isso apagará todos os documentos locais e a pasta do pedido permanentemente.`,
+        message: `Deseja finalizar este pedido como ${status}? Isso apagará todos os documentos locais e a pasta do pedido permanentemente.`,
         confirmText: 'Sim, Finalizar',
         cancelText: 'Não, Voltar',
         hideCancel: false
       });
 
-      if (!confirmado) return false;
+      if (!confirmado) {
+        console.log('[salvarPedido] Salvamento cancelado pelo usuário no modal.');
+        atualizarStatusSalvamento('idle', 'Pronto');
+        return false;
+      }
     }
 
-    console.log('Salvando dados:', JSON.stringify(dados, null, 2));
+    console.log('[salvarPedido] Enviando payload para electronAPI.salvarPedido:', dados);
     const resultado = await window.electronAPI.salvarPedido(dados);
+    console.log('[salvarPedido] Resposta de electronAPI.salvarPedido:', resultado);
     
-    if (resultado.success) {
-      console.log('Pedido salvo:', dados.pedido);
+    if (resultado && resultado.success) {
+      console.log('[salvarPedido] Pedido gravado com sucesso no backend:', dados.pedido, resultado);
       currentPedidoId = resultado.data?.id || currentPedidoId;
       const foiAtualizado = resultado.action === 'updated' || jaExistia;
       
       atualizarStatusSalvamento(foiAtualizado ? 'updated' : 'saved', foiAtualizado ? 'Sobrescrito' : 'Salvo');
-      atualizarContadoresStatus();
+      if (typeof window.atualizarContadoresStatus === 'function') {
+        window.atualizarContadoresStatus();
+      }
       if (typeof atualizarStatusPastaPedido === 'function') {
         atualizarStatusPastaPedido();
       }
@@ -2475,14 +2571,16 @@ async function salvarPedido(options = {}) {
       // Processar anexos pendentes
       if (typeof window.processPendingAttachments === 'function') {
         try {
+          console.log('[salvarPedido] Processando anexos pendentes para pedido:', dados.pedido);
           await window.processPendingAttachments(dados.pedido);
         } catch (err) {
-          console.error('Erro ao processar anexos pendentes após salvar pedido:', err);
+          console.error('[salvarPedido] Erro ao processar anexos pendentes após salvar pedido:', err);
         }
       }
 
       // Lógica de finalização (apagar pasta e zerar campos)
-      if (status === 'aprovado' || status === 'cancelado') {
+      if (status === 'APROVADO' || status === 'CANCELADO') {
+        console.log(`[salvarPedido] Finalizando pedido (${status}): limpando pasta local e campos...`);
         const usuario = currentUser?.email;
         const pedidoNum = dados.pedido;
 
@@ -2510,17 +2608,26 @@ async function salvarPedido(options = {}) {
 
       return true;
     } else {
-      console.error('[erro] Erro ao salvar pedido:', resultado.error);
-      atualizarStatusSalvamento('error', 'Erro ao salvar', resultado.error);
+      const erroMsg = resultado?.error || 'Erro desconhecido retornado pelo servidor.';
+      console.error('[salvarPedido] Falha retornada pelo backend:', erroMsg, resultado);
+      atualizarStatusSalvamento('error', 'Erro ao salvar', erroMsg);
+      if (window.toastNotifier) {
+        window.toastNotifier.error(`Erro ao salvar pedido: ${erroMsg}`);
+      }
       return false;
     }
   } catch (error) {
-    console.error('[erro] Erro ao salvar pedido:', error);
-    atualizarStatusSalvamento('error', 'Erro ao salvar', error.message || String(error));
+    console.error('[salvarPedido] Exceção inesperada capturada:', error);
+    const erroMsg = error?.message || String(error);
+    atualizarStatusSalvamento('error', 'Erro ao salvar', erroMsg);
+    if (window.toastNotifier) {
+      window.toastNotifier.error(`Erro inesperado ao salvar: ${erroMsg}`);
+    }
     return false;
   } finally {
     isSaving = false;
     if (pedidoSaveBtn) pedidoSaveBtn.disabled = false;
+    console.log('[salvarPedido] Finalizado ciclo de salvamento.');
   }
 }
 
@@ -2576,12 +2683,23 @@ function inicializarControleManualPedido() {
     }
     ocultarAreaDadosPedido();
     atualizarStatusSalvamento('cleared', 'Campos limpos');
-    atualizarContadoresStatus();
+    if (typeof window.atualizarContadoresStatus === 'function') {
+      window.atualizarContadoresStatus();
+    }
   });
   
   atualizarStatusSalvamento('idle', 'Pronto');
   definirBaselinePedidoAtual();
-  atualizarContadoresStatus();
+  if (typeof window.atualizarContadoresStatus === 'function') {
+    window.atualizarContadoresStatus();
+  } else {
+    // Se não estiver definida ainda, retry após 2s (quando todo o script tiver carregado)
+    setTimeout(() => {
+      if (typeof window.atualizarContadoresStatus === 'function') {
+        window.atualizarContadoresStatus();
+      }
+    }, 2000);
+  }
   console.log('[ok] Controle manual de salvamento inicializado em', campos.length, 'campos');
 }
 
@@ -2589,15 +2707,78 @@ function inicializarControleManualPedido() {
 setTimeout(inicializarControleManualPedido, 500);
 
 // Função para limpar todos os campos do formulário
+// Todos os campos preenchidos a partir de uma consulta de CNPJ. Nem todos
+// existem na tela hoje (varios vieram do layout antigo), mas continuam na lista
+// para que uma limpeza nunca deixe residuo de outra empresa para tras.
+const CAMPOS_EMPRESA_IDS = [
+  'empresa-situacao', 'empresa-data-situacao', 'empresa-motivo-situacao',
+  'empresa-razao-social', 'empresa-nome-fantasia', 'empresa-porte', 'empresa-natureza-juridica',
+  'empresa-data-abertura', 'empresa-capital-social', 'empresa-cep', 'empresa-municipio',
+  'empresa-uf', 'empresa-bairro', 'empresa-logradouro', 'empresa-numero', 'empresa-complemento',
+  'empresa-junta', 'empresa-telefone', 'empresa-email'
+];
+
+// Reflete a situacao cadastral na tela: aviso de empresa inapta + icone ao lado
+// do campo. Roda tanto ao consultar o CNPJ quanto ao recarregar um pedido ja
+// salvo — antes so a consulta acendia o aviso, e quem reabria um pedido de
+// empresa inapta nao via nada.
+function atualizarSituacaoEmpresa(situacaoTexto) {
+  const situacao = String(situacaoTexto || '').toUpperCase();
+  const warningDiv = document.getElementById('empresa-inapta-warning');
+  const situacaoIcon = document.getElementById('situacao-icon');
+
+  if (warningDiv) {
+    warningDiv.style.display = situacao.includes('INAPTA') ? 'flex' : 'none';
+  }
+
+  if (!situacaoIcon) return;
+
+  if (!situacao) {
+    situacaoIcon.style.display = 'none';
+    situacaoIcon.innerHTML = '';
+    return;
+  }
+
+  situacaoIcon.style.display = 'flex';
+
+  if (situacao.includes('ATIVA')) {
+    situacaoIcon.innerHTML = `<svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>`;
+    situacaoIcon.style.color = '#34c759';
+  } else if (situacao.includes('INAPTA') || situacao.includes('SUSPENSA') || situacao.includes('BAIXADA')) {
+    situacaoIcon.innerHTML = `<svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M165.66,101.66,139.31,128l26.35,26.34a8,8,0,0,1-11.32,11.32L128,139.31l-26.34,26.35a8,8,0,0,1-11.32-11.32L116.69,128,90.34,101.66a8,8,0,0,1,11.32-11.32L128,116.69l26.34-26.35a8,8,0,0,1,11.32,11.32ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>`;
+    situacaoIcon.style.color = '#ff3b30';
+  } else {
+    situacaoIcon.innerHTML = `<svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M236.8,188.09,149.35,36.22h0a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM222.93,203.8a8.5,8.5,0,0,1-7.48,4.2H40.55a8.5,8.5,0,0,1-7.48-4.2,7.59,7.59,0,0,1,0-7.72L120.52,44.21a8.75,8.75,0,0,1,15,0l87.45,151.87A7.59,7.59,0,0,1,222.93,203.8ZM120,144V104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,180Z"/></svg>`;
+    situacaoIcon.style.color = '#ff9500';
+  }
+}
+window.atualizarSituacaoEmpresa = atualizarSituacaoEmpresa;
+
+// Zera os dados da empresa e os indicadores visuais que dependem deles.
+// 'incluirCnpj' fica de fora quando o usuario esta editando o proprio campo.
+function limparCamposEmpresa({ incluirCnpj = false } = {}) {
+  const ids = incluirCnpj ? ['empresa-cnpj', ...CAMPOS_EMPRESA_IDS] : CAMPOS_EMPRESA_IDS;
+  ids.forEach((id) => {
+    const input = document.getElementById(id);
+    if (input) input.value = '';
+  });
+
+  // Sem situação cadastral, some o aviso de inapta e o ícone do campo
+  atualizarSituacaoEmpresa('');
+}
+window.limparCamposEmpresa = limparCamposEmpresa;
+
 function limparTodosCampos() {
   console.log('[info] Limpando todos os campos...');
+  ultimaBuscaPedido = '';
+  ultimaBuscaMomento = 0;
   
   // Limpar campos do cabeçalho (exceto número do pedido)
-  const dataInput = document.querySelector('.pedido-header .pedido-field:nth-child(2) input');
-  const horaInput = document.querySelector('.pedido-header .pedido-field:nth-child(3) input');
-  const certificadoSelect = document.querySelector('.info-row-vertical select');
-  const atendimentoSelect = document.querySelector('.info-grid .info-item:nth-child(1) select');
-  const vendaSelect = document.querySelector('.info-grid .info-item:nth-child(2) select');
+  const dataInput = document.getElementById('pedido-data-input');
+  const horaInput = document.getElementById('pedido-hora-input');
+  const certificadoSelect = document.getElementById('pedido-certificado-select');
+  const atendimentoSelect = document.getElementById('pedido-modalidade-select');
+  const vendaSelect = document.getElementById('pedido-venda-select');
   const precoInput = document.getElementById('pedido-preco-input');
   const comissaoInput = document.getElementById('pedido-comissao-input');
   
@@ -2616,15 +2797,15 @@ function limparTodosCampos() {
   if (precoInput) precoInput.value = '';
   if (comissaoInput) comissaoInput.value = '';
 
-  // Reseta visibilidade da seção empresa
-  const sectionEmpresa = document.getElementById('section-empresa');
-  if (sectionEmpresa) sectionEmpresa.style.display = 'block';
-  
-  // Limpar status - volta para digitação
-  const digitacaoRadio = document.querySelector('input[name="status"][value="digitacao"]');
-  if (digitacaoRadio) {
-    digitacaoRadio.checked = true;
-  }
+  // A visibilidade da seção Empresa já foi recalculada acima, junto com o
+  // resto da área, por atualizarVisibilidadeDadosPedidoPorCertificado().
+
+  // Limpar status - volta para DIGITAÇÃO
+  const todosRadios = document.querySelectorAll('#pedido input[name="status"]');
+  todosRadios.forEach(r => {
+    r.checked = (normalizarStatus(r.value) === 'DIGITAÇÃO');
+  });
+  sincronizarVisualRadiosStatus();
   
   // Limpar todos os campos com ID
   const idsParaLimpar = [
@@ -2638,28 +2819,9 @@ function limparTodosCampos() {
     if (input) input.value = '';
   });
   
-  // Limpar todos os inputs de dados empresa
-  const camposEmpresaIds = [
-    'empresa-cnpj', 'empresa-situacao', 'empresa-data-situacao', 'empresa-motivo-situacao',
-    'empresa-razao-social', 'empresa-nome-fantasia', 'empresa-porte', 'empresa-natureza-juridica',
-    'empresa-data-abertura', 'empresa-capital-social', 'empresa-cep', 'empresa-municipio',
-    'empresa-uf', 'empresa-bairro', 'empresa-logradouro', 'empresa-numero', 'empresa-complemento',
-    'empresa-junta', 'empresa-telefone', 'empresa-email'
-  ];
-  
-  camposEmpresaIds.forEach(id => {
-    const input = document.getElementById(id);
-    if (input) input.value = '';
-  });
-  
-  // Esconder aviso de empresa inapta
-  const warningDiv = document.getElementById('empresa-inapta-warning');
-  if (warningDiv) warningDiv.style.display = 'none';
-  
-  // Esconder ícone de situação cadastral
-  const situacaoIcon = document.getElementById('situacao-icon');
-  if (situacaoIcon) situacaoIcon.style.display = 'none';
-  
+  // Limpar todos os inputs de dados empresa (inclusive o proprio CNPJ)
+  limparCamposEmpresa({ incluirCnpj: true });
+
   console.log('[ok] Todos os campos foram limpos');
   
   // Limpar status da pasta
@@ -2704,6 +2866,14 @@ function limparTodosCampos() {
   }
 }
 
+// Regra unica de visibilidade da aba Dados Pedido:
+// - A secao "Pedido" (numero/data/hora/certificado/preco/comissao) e a UNICA
+//   sempre visivel — e onde se digita o numero pra trazer um pedido existente
+//   ou se prepara um novo.
+// - Todo o resto (Status, Titular, Empresa, Anexos, Comentarios) so aparece
+//   depois que um certificado for selecionado.
+// - Dentro disso, "Empresa" tem uma regra a mais: só aparece se o certificado
+//   selecionado for um e-CNPJ (ver atualizarVisibilidadeSecaoEmpresaPorCertificado).
 function ocultarAreaDadosPedido() {
   const scrollArea = document.getElementById('form-scrollable-area');
   if (scrollArea) scrollArea.style.setProperty('display', 'none', 'important');
@@ -2720,16 +2890,6 @@ function temCertificadoPedidoSelecionado() {
 }
 window.temCertificadoPedidoSelecionado = temCertificadoPedidoSelecionado;
 
-function atualizarVisibilidadeDadosPedidoPorCertificado() {
-  if (currentPedidoId || temCertificadoPedidoSelecionado()) {
-    mostrarAreaDadosPedido(true);
-  } else {
-    ocultarAreaDadosPedido();
-  }
-}
-window.atualizarVisibilidadeDadosPedidoPorCertificado = atualizarVisibilidadeDadosPedidoPorCertificado;
-
-// Função para buscar e preencher pedido
 function mostrarAreaDadosPedido(force = false) {
   const scrollArea = document.getElementById('form-scrollable-area');
   if (!force && !temCertificadoPedidoSelecionado()) {
@@ -2739,6 +2899,24 @@ function mostrarAreaDadosPedido(force = false) {
   if (scrollArea) scrollArea.style.setProperty('display', 'flex', 'important');
 }
 window.mostrarAreaDadosPedido = mostrarAreaDadosPedido;
+
+function atualizarVisibilidadeDadosPedidoPorCertificado() {
+  if (!temCertificadoPedidoSelecionado()) {
+    ocultarAreaDadosPedido();
+    return;
+  }
+
+  mostrarAreaDadosPedido(true);
+
+  // Dentro da area ja visivel, Empresa segue a propria regra (so e-CNPJ).
+  const select = document.getElementById('pedido-certificado-select');
+  const opt = select?.options?.[select.selectedIndex];
+  const certText = opt?.textContent || select?.value || '';
+  if (typeof window.atualizarVisibilidadeSecaoEmpresaPorCertificado === 'function') {
+    window.atualizarVisibilidadeSecaoEmpresaPorCertificado(certText);
+  }
+}
+window.atualizarVisibilidadeDadosPedidoPorCertificado = atualizarVisibilidadeDadosPedidoPorCertificado;
 
 function normalizarDataInput(valor) {
   if (!valor) return '';
@@ -2847,6 +3025,7 @@ function preencherPedidoNaTela(pedido, numeroPedido, pedidoInput) {
   }
 
   escreverValorPorId('pedido-numero-input', pedido.pedido || numeroPedido);
+  atualizarTituloAbaPedidoAtiva(pedido.pedido || numeroPedido);
 
   const campos = {
     'pessoa-nome': pedido.nome,
@@ -2886,31 +3065,26 @@ function preencherPedidoNaTela(pedido, numeroPedido, pedidoInput) {
 
   Object.entries(campos).forEach(([id, valor]) => escreverValorPorId(id, valor));
 
-  escreverValorCampo(document.querySelector('.pedido-header .pedido-field:nth-child(2) input'), normalizarDataInput(pedido.data));
-  escreverValorCampo(document.querySelector('.pedido-header .pedido-field:nth-child(3) input'), pedido.hora || '');
-  const selectCertificado = document.querySelector('.info-row-vertical select');
+  // A situacao cadastral vem salva junto do pedido, entao o aviso de empresa
+  // inapta e o icone sao reconstruidos aqui — sem depender de uma nova consulta
+  // ao CNPJ, que pode nem acontecer ao reabrir o pedido.
+  atualizarSituacaoEmpresa(pedido.situacao_cadastral);
+
+  escreverValorCampo(document.getElementById('pedido-data-input'), normalizarDataInput(pedido.data));
+  escreverValorCampo(document.getElementById('pedido-hora-input'), pedido.hora || '');
+  const selectCertificado = document.getElementById('pedido-certificado-select');
   garantirOpcaoVaziaSelect(selectCertificado, 'Selecione um certificado');
   escreverValorSelect(selectCertificado, pedido.versao || '');
   if (typeof window.atualizarDropdownCertificadoPedido === 'function') {
     window.atualizarDropdownCertificadoPedido();
   }
-  // Mostra ou oculta containers conforme o certificado preenchido
+  // Mostra/oculta a area toda e, dentro dela, a secao Empresa conforme o
+  // certificado preenchido (regra unica, ver atualizarVisibilidadeDadosPedidoPorCertificado).
   if (typeof window.atualizarVisibilidadeDadosPedidoPorCertificado === 'function') {
     window.atualizarVisibilidadeDadosPedidoPorCertificado();
   }
-  if (selectCertificado) {
-    const opt = selectCertificado.options[selectCertificado.selectedIndex];
-    const certTextAtual = opt?.textContent || selectCertificado.value || '';
-    const sectionEmpresa = document.getElementById('section-empresa');
-    if (sectionEmpresa) {
-      const texto = normalizarTextoRelatorio(certTextAtual);
-      const temCnpj = /\b(CNPJ|E[-\s]?CNPJ|PJ)\b/.test(texto);
-      const temCpf = /\b(CPF|E[-\s]?CPF|PF)\b/.test(texto);
-      sectionEmpresa.style.display = temCnpj ? 'block' : (temCpf ? 'none' : 'block');
-    }
-  }
-  escreverValorSelect(document.querySelector('.info-grid .info-item:nth-child(1) select'), pedido.modalidade || '');
-  escreverValorSelect(document.querySelector('.info-grid .info-item:nth-child(2) select'), ehVendaSim(pedido.venda) ? 'sim' : 'nao');
+  escreverValorSelect(document.getElementById('pedido-modalidade-select'), pedido.modalidade || '');
+  escreverValorSelect(document.getElementById('pedido-venda-select'), ehVendaSim(pedido.venda) ? 'sim' : 'nao');
   const precoRaw = pedido.preco_certificado ?? '';
   const comissaoRaw = pedido.comissao ?? '';
   escreverValorCampo(
@@ -2929,11 +3103,19 @@ function preencherPedidoNaTela(pedido, numeroPedido, pedidoInput) {
   // Inicializa o cálculo e o botão de info
   calcularComissao();
 
-  const statusValue = String(pedido.status || 'digitacao').toLowerCase().replace(/ /g, '_');
-  const statusRadio = document.querySelector(`input[name="status"][value="${statusValue}"]`);
-  if (statusRadio) {
-    statusRadio.checked = true;
+  const statusValue = normalizarStatus(pedido.status || 'DIGITAÇÃO');
+  const todosRadios = document.querySelectorAll('#pedido input[name="status"]');
+  let radioMarcado = false;
+  todosRadios.forEach(r => {
+    const corresponde = (normalizarStatus(r.value) === statusValue);
+    r.checked = corresponde;
+    if (corresponde) radioMarcado = true;
+  });
+  if (!radioMarcado) {
+    const defaultRadio = document.querySelector('#pedido input[name="status"][value="DIGITAÇÃO"]') || todosRadios[0];
+    if (defaultRadio) defaultRadio.checked = true;
   }
+  sincronizarVisualRadiosStatus();
 
   try {
     const pastaInfo = pedido.pasta_info;
@@ -2951,15 +3133,15 @@ function preencherPedidoNaTela(pedido, numeroPedido, pedidoInput) {
   }
 
   
-  atualizarStatusSalvamento('saved', 'Salvo');
-
-  const dropzone = document.getElementById('dropzone');
-  if (dropzone) dropzone.classList.remove('disabled');
-
   console.log('[ok] Pedido preenchido na tela:', pedido.pedido || numeroPedido);
+  if (typeof window.atualizarContadoresStatus === 'function') {
+    window.atualizarContadoresStatus();
+  }
 }
 
 let pedidoBuscaRequestId = 0;
+let ultimaBuscaPedido = '';
+let ultimaBuscaMomento = 0;
 
 function normalizarNumeroPedidoBusca(numeroPedido) {
   return String(numeroPedido || '').trim();
@@ -2973,6 +3155,9 @@ function pedidoBuscaAindaAtual(numeroPedido, requestId) {
 async function buscarEPreencherPedido(numeroPedido) {
   const numeroPedidoNormalizado = normalizarNumeroPedidoBusca(numeroPedido);
   if (!numeroPedidoNormalizado) return;
+  
+  ultimaBuscaPedido = numeroPedidoNormalizado;
+  ultimaBuscaMomento = Date.now();
   
   const pedidoInput = document.getElementById('pedido-numero-input');
   const requestId = ++pedidoBuscaRequestId;
@@ -3075,8 +3260,8 @@ function limparCamposParaNovoPedido(numeroPedido) {
   currentPedidoId = null;
   
   // Limpar campos do cabeçalho (exceto pedido)
-  const dataInput = document.querySelector('.pedido-header .pedido-field:nth-child(2) input');
-  const horaInput = document.querySelector('.pedido-header .pedido-field:nth-child(3) input');
+  const dataInput = document.getElementById('pedido-data-input');
+  const horaInput = document.getElementById('pedido-hora-input');
   
   // Define data e hora atuais
   if (dataInput) {
@@ -3094,8 +3279,9 @@ function limparCamposParaNovoPedido(numeroPedido) {
     horaInput.value = `${hora}:${minuto}`;
   }
   
-  // Reset status para digitação
-  const digitacaoRadio = document.querySelector('input[name="status"][value="digitacao"]');
+  // Reset status para DIGITAÇÃO
+  const digitacaoRadio = document.querySelector('input[name="status"][value="DIGITAÇÃO"]') ||
+                         document.querySelector('input[name="status"][value="digitacao"]');
   if (digitacaoRadio) {
     digitacaoRadio.checked = true;
   }
@@ -3110,14 +3296,12 @@ function limparCamposParaNovoPedido(numeroPedido) {
 // Buscar pedido ao sair do campo PEDIDO ou pressionar Enter
 const pedidoInput = document.getElementById('pedido-numero-input');
 if (pedidoInput) {
-  let ultimaBuscaPedido = '';
-  let ultimaBuscaMomento = 0;
-
-  async function executarBuscaPedidoAtual() {
+  async function executarBuscaPedidoAtual(force = false) {
     const numeroPedido = normalizarNumeroPedidoBusca(pedidoInput.value);
     if (!numeroPedido) {
       pedidoBuscaRequestId += 1;
       currentPedidoId = null;
+      ultimaBuscaPedido = '';
       limparTodosCampos();
       definirBaselinePedidoAtual();
       atualizarTituloAbaPedidoAtiva('');
@@ -3125,43 +3309,26 @@ if (pedidoInput) {
       return;
     }
 
-    const abaAtiva = obterAbaPedidoAtiva();
-    const pedidoBaseline = normalizarNumeroPedidoBusca(abaAtiva?.baseline?.pedido || '');
-    const alteracoesForaPedido = possuiAlteracoesPendentesExcetoPedido();
-
-    // Evita sobrescrever campos já editados quando o pedido não mudou.
-    if (alteracoesForaPedido && numeroPedido === pedidoBaseline) {
-      return;
-    }
-
-    // Sem alterações no número do pedido, não precisa recarregar novamente.
-    if (numeroPedido === pedidoBaseline && currentPedidoId) {
-      return;
-    }
-
-    const agora = Date.now();
-    if (numeroPedido === ultimaBuscaPedido && agora - ultimaBuscaMomento < 500) {
+    if (!force && numeroPedido === ultimaBuscaPedido) {
       return;
     }
 
     ultimaBuscaPedido = numeroPedido;
-    ultimaBuscaMomento = agora;
+    ultimaBuscaMomento = Date.now();
+    console.log('[executarBuscaPedidoAtual] Disparando busca para pedido:', numeroPedido);
     await buscarEPreencherPedido(numeroPedido);
   }
 
-  // Busca ao pressionar Enter ou perder foco
-  // (A área de dados será exibida apenas ao finalizar a edição e buscar o pedido)
-
-  // Ao perder o foco (blur) - busca antes de permitir salvamento
+  // Ao perder o foco (blur) - busca apenas se o número digitado for diferente do atual
   pedidoInput.addEventListener('blur', async () => {
-    await executarBuscaPedidoAtual();
+    await executarBuscaPedidoAtual(false);
   });
   
-  // Ao pressionar Enter
+  // Ao pressionar Enter - força a busca mesmo se o número for o mesmo
   pedidoInput.addEventListener('keydown', async (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      await executarBuscaPedidoAtual();
+      await executarBuscaPedidoAtual(true);
       pedidoInput.blur();
     }
   });
@@ -3180,73 +3347,6 @@ function normalizarTranslucidezJanela(valor) {
 
 function obterChaveTranslucidezJanela(usuario = currentUser?.email) {
   return `companion-window-translucency:${usuario || 'local'}`;
-}
-
-// ── Font Size ──────────────────────────────────────────────────────────────
-const FONT_SIZE_PADRAO = 0;
-const BASE_FONTES = { label: 10, xs: 11, sm: 12, md: 13, lg: 14 };
-const FONT_SIZE_NOMES = { '-2': 'Menor', '-1': 'Pequeno', '0': 'Normal', '1': 'Grande', '2': 'Maior', '3': 'Muito Grande', '4': 'Máximo' };
-
-function obterChaveFontSize(usuario = currentUser?.email) {
-  return `companion-font-size:${usuario || 'local'}`;
-}
-
-function normalizarFontSize(val) {
-  const n = parseInt(val);
-  return isNaN(n) ? FONT_SIZE_PADRAO : Math.min(4, Math.max(-2, n));
-}
-
-function lerFontSize(usuario = currentUser?.email) {
-  const stored = localStorage.getItem(obterChaveFontSize(usuario));
-  return normalizarFontSize(stored ?? FONT_SIZE_PADRAO);
-}
-
-function salvarFontSize(val, usuario = currentUser?.email) {
-  localStorage.setItem(obterChaveFontSize(usuario), String(normalizarFontSize(val)));
-}
-
-function atualizarControlesFontSize(n) {
-  const range = document.getElementById('config-font-size');
-  const number = document.getElementById('config-font-size-number');
-  const label = document.getElementById('config-font-size-label');
-  if (range) {
-    range.value = String(n);
-    range.style.setProperty('--translucency-fill', `${((n - (-2)) / 6) * 100}%`);
-  }
-  if (number) number.value = String(n);
-  if (label) label.textContent = FONT_SIZE_NOMES[String(n)] ?? 'Normal';
-}
-
-function aplicarFontSize(val) {
-  const n = normalizarFontSize(val);
-  // Zoom de 5% por passo — afeta tudo (px hardcoded, vars, SVGs, etc.)
-  const zoom = (1 + n * 0.05).toFixed(3);
-  const mainContent = document.getElementById('main-content');
-  if (mainContent) mainContent.style.zoom = zoom;
-  // CSS vars para elementos que as usam diretamente
-  const root = document.documentElement;
-  root.style.setProperty('--ui-font-label', (BASE_FONTES.label + n) + 'px');
-  root.style.setProperty('--ui-font-xs',    (BASE_FONTES.xs    + n) + 'px');
-  root.style.setProperty('--ui-font-sm',    (BASE_FONTES.sm    + n) + 'px');
-  root.style.setProperty('--ui-font-md',    (BASE_FONTES.md    + n) + 'px');
-  root.style.setProperty('--ui-font-lg',    (BASE_FONTES.lg    + n) + 'px');
-  atualizarControlesFontSize(n);
-}
-
-function inicializarFontSize(usuario = currentUser?.email) {
-  const range = document.getElementById('config-font-size');
-  const number = document.getElementById('config-font-size-number');
-  if (!range || !number) return;
-
-  aplicarFontSize(lerFontSize(usuario));
-
-  if (range.dataset.boundFontSize === '1') return;
-  range.dataset.boundFontSize = '1';
-
-  const sincronizar = (e) => aplicarFontSize(e.target.value);
-  range.addEventListener('input', sincronizar);
-  number.addEventListener('input', sincronizar);
-  number.addEventListener('blur', () => aplicarFontSize(number.value));
 }
 
 function lerTranslucidezJanela(usuario = currentUser?.email) {
@@ -3320,12 +3420,10 @@ function garantirBarraInferiorConfiguracoes() {
     statusEl.id = 'config-save-status';
     statusEl.className = 'config-save-status idle';
     statusEl.innerHTML = `
-      <svg class="status-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M20 6 9 17l-5-5"></path>
-      </svg>
+      <svg class="status-icon" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>
       <span class="status-text">Sem alteracoes</span>
     `;
-    saveSection.insertBefore(statusEl, saveBtn);
+    saveSection.insertBefore(statusEl, saveSection.firstChild);
   }
 }
 
@@ -3339,11 +3437,11 @@ function atualizarStatusConfiguracoes(estado = 'idle', mensagem = 'Sem alteracoe
   const textEl = statusEl.querySelector('.status-text');
 
   const icons = {
-    idle: '<path d="M20 6 9 17l-5-5"></path>',
-    dirty: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z"></path>',
-    saving: '<circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path>',
-    saved: '<path d="M20 6 9 17l-5-5"></path>',
-    error: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>'
+    idle: '<path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/>',
+    dirty: '<path d="M227.31,73.37,182.63,28.69a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.69,147.31,64l24-24L216,84.69Z"/>',
+    saving: '<path d="M232,128a104,104,0,0,1-208,0c0-41,23.81-78.36,60.66-95.27a8,8,0,0,1,6.68,14.54C60.15,61.59,40,93.27,40,128a88,88,0,0,0,176,0c0-34.73-20.15-66.41-51.34-80.73a8,8,0,0,1,6.68-14.54C208.19,49.64,232,87,232,128Z"/>',
+    saved: '<path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/>',
+    error: '<path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,172Z"/>'
   };
 
   statusEl.classList.remove('idle', 'dirty', 'saving', 'saved', 'error');
@@ -3358,80 +3456,6 @@ function marcarConfiguracoesAlteradas() {
   if (isCarregandoConfiguracoes) return;
   configuracoesAlteradas = true;
   atualizarStatusConfiguracoes('dirty', 'Alteracoes nao salvas');
-}
-
-function atualizarIconeToggleSenhaConfig(visible) {
-  const toggle = document.getElementById('config-senha-toggle');
-  if (!toggle) return;
-
-  if (visible) {
-    toggle.title = 'Ocultar senha';
-    toggle.setAttribute('aria-label', 'Ocultar senha');
-    toggle.innerHTML = `
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-        <path d="m3 3 18 18"></path>
-        <path d="M10.58 10.58a2 2 0 0 0 2.83 2.83"></path>
-        <path d="M9.88 5.09A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a21.66 21.66 0 0 1-3.16 4.19"></path>
-        <path d="M6.61 6.61A21.69 21.69 0 0 0 1 12s4 7 11 7a10.94 10.94 0 0 0 5.39-1.39"></path>
-      </svg>
-    `;
-    return;
-  }
-
-  toggle.title = 'Mostrar senha';
-  toggle.setAttribute('aria-label', 'Mostrar senha');
-  toggle.innerHTML = `
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"></path>
-      <circle cx="12" cy="12" r="3"></circle>
-    </svg>
-  `;
-}
-
-function inicializarToggleSenhaConfig() {
-  const input = document.getElementById('config-senha');
-  const toggle = document.getElementById('config-senha-toggle');
-  if (!input || !toggle) return;
-  if (toggle.dataset.bound === '1') return;
-  toggle.dataset.bound = '1';
-
-  const alternar = () => {
-    const visivel = input.type === 'password';
-    input.type = visivel ? 'text' : 'password';
-    atualizarIconeToggleSenhaConfig(visivel);
-  };
-
-  toggle.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    alternar();
-  });
-
-  toggle.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      alternar();
-    }
-  });
-
-  atualizarIconeToggleSenhaConfig(input.type === 'text');
-}
-
-async function obterSenhaLembradaDoUsuario(emailUsuario) {
-  try {
-    if (!window.electronAPI?.getCredentials) return '';
-    const credenciais = await window.electronAPI.getCredentials();
-    const emailCredencial = String(credenciais?.email || '').trim().toLowerCase();
-    const emailAtual = String(emailUsuario || '').trim().toLowerCase();
-
-    if (!emailCredencial || !emailAtual || emailCredencial !== emailAtual) {
-      return '';
-    }
-
-    return String(credenciais?.password || '');
-  } catch {
-    return '';
-  }
 }
 
 function inicializarMonitoramentoConfiguracoes() {
@@ -3457,64 +3481,9 @@ function inicializarMonitoramentoConfiguracoes() {
   container.addEventListener('change', handlerAlteracao);
 }
 
-function inicializarSecoesConfiguracoesRetrateis() {
-  const container = document.getElementById('configuracoes');
-  if (!container || container.dataset.collapsibleConfigInit === '1') return;
-  container.dataset.collapsibleConfigInit = '1';
-
-  const secoes = container.querySelectorAll('.section');
-  secoes.forEach((secao) => {
-    if (secao.classList.contains('config-bottom-bar')) return;
-
-    const titulo = secao.querySelector(':scope > .section-title');
-    if (!titulo) return;
-
-    secao.classList.add('config-collapsible');
-
-    let content = secao.querySelector(':scope > .config-section-content');
-    if (!content) {
-      content = document.createElement('div');
-      content.className = 'config-section-content';
-
-      let nodo = titulo.nextSibling;
-      while (nodo) {
-        const next = nodo.nextSibling;
-        content.appendChild(nodo);
-        nodo = next;
-      }
-      secao.appendChild(content);
-    }
-
-    let arrow = titulo.querySelector('.config-section-arrow');
-    if (!arrow) {
-      arrow = document.createElement('span');
-      arrow.className = 'config-section-arrow';
-      arrow.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
-      `;
-      titulo.appendChild(arrow);
-    }
-
-    // Por padrão, as seções de Configurações iniciam recolhidas
-    if (!secao.classList.contains('collapsed')) {
-      secao.classList.add('collapsed');
-    }
-
-    if (titulo.dataset.boundCollapse === '1') return;
-    titulo.dataset.boundCollapse = '1';
-    titulo.addEventListener('click', () => {
-      secao.classList.toggle('collapsed');
-    });
-  });
-}
-
 garantirBarraInferiorConfiguracoes();
 inicializarMonitoramentoConfiguracoes();
-inicializarSecoesConfiguracoesRetrateis();
 inicializarTranslucidezJanela();
-inicializarFontSize();
 atualizarStatusConfiguracoes('idle', 'Sem alteracoes');
 
 function obterChaveConsoleConfiguracoes(usuario = currentUser?.email) {
@@ -3556,10 +3525,7 @@ async function carregarConfiguracoes() {
   try {
     garantirBarraInferiorConfiguracoes();
     inicializarMonitoramentoConfiguracoes();
-    inicializarSecoesConfiguracoesRetrateis();
-    inicializarToggleSenhaConfig();
     inicializarTranslucidezJanela();
-    inicializarFontSize();
     isCarregandoConfiguracoes = true;
 
     if (!currentUser) {
@@ -3591,10 +3557,7 @@ async function carregarConfiguracoes() {
     };
 
     const usuarioConfigurado = config.usuario || usuario;
-    const senhaLembrada = await obterSenhaLembradaDoUsuario(usuarioConfigurado);
 
-    setField('config-usuario', usuarioConfigurado);
-    setField('config-senha', config.senha || senhaLembrada || '');
     setField('config-agente', config.agente || '');
     setField('config-cod-rev', config.cod_rev || '');
     setField('config-email', config.email || '');
@@ -3609,7 +3572,6 @@ async function carregarConfiguracoes() {
     setField('config-imp-renda', config.imposto_validacao ?? 15);
     setField('config-desc-validacao', config.desconto_validacao ?? 2.75);
     inicializarTranslucidezJanela(usuarioConfigurado);
-    inicializarFontSize(usuarioConfigurado);
     sincronizarSwitchConsoleConfiguracoes(usuarioConfigurado);
     await atualizarStatusPastaUsuario();
     configuracoesAlteradas = false;
@@ -3634,7 +3596,7 @@ if (salvarConfigBtn) {
       await carregarUsuarioLogado();
     }
 
-    const usuario = document.getElementById('config-usuario')?.value?.trim() || currentUser?.email;
+    const usuario = currentUser?.email;
 
     if (!usuario) {
       atualizarStatusConfiguracoes('idle', 'Sem alteracoes');
@@ -3646,10 +3608,9 @@ if (salvarConfigBtn) {
       });
       return;
     }
-    
+
     const config = {
       usuario: usuario,
-      senha: document.getElementById('config-senha')?.value,
       agente: document.getElementById('config-agente')?.value,
       cod_rev: document.getElementById('config-cod-rev')?.value,
       email: document.getElementById('config-email')?.value,
@@ -3667,7 +3628,6 @@ if (salvarConfigBtn) {
     salvarConsoleHabilitado(Boolean(document.getElementById('config-console-enabled')?.checked), usuario);
     salvarTranslucidezJanela(document.getElementById('config-window-translucency')?.value, usuario);
     aplicarTranslucidezJanela(document.getElementById('config-window-translucency')?.value);
-    salvarFontSize(document.getElementById('config-font-size')?.value, usuario);
     
     try {
       const resultado = await window.electronAPI.salvarConfiguracoes(config);
@@ -3675,8 +3635,7 @@ if (salvarConfigBtn) {
       if (resultado.success) {
         currentUser = {
           ...(currentUser || {}),
-          email: resultado.data?.usuario || usuario,
-          senha: config.senha || currentUser?.senha
+          email: resultado.data?.usuario || usuario
         };
         localStorage.setItem('user', JSON.stringify(currentUser));
         if (window.toastNotifier) window.toastNotifier.success('Configurações salvas com sucesso.');
@@ -3691,6 +3650,28 @@ if (salvarConfigBtn) {
       console.error('Erro ao salvar configurações:', error);
       atualizarStatusConfiguracoes('error', 'Erro ao salvar configuracoes');
       if (window.toastNotifier) window.toastNotifier.error('Erro ao salvar configurações.');
+    }
+  });
+}
+
+// Sair da conta
+const logoutBtn = document.getElementById('logout-btn');
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', async () => {
+    const confirmado = await showCustomModal({
+      title: 'Sair',
+      message: 'Deseja sair da sua conta?',
+      confirmText: 'Sim, sair',
+      cancelText: 'Cancelar',
+      hideCancel: false
+    });
+
+    if (!confirmado) return;
+
+    try {
+      await window.electronAPI.authLogout();
+    } catch (error) {
+      console.error('Erro ao sair:', error);
     }
   });
 }
@@ -4083,18 +4064,35 @@ function extrairHora(timestamp) {
   return `${String(data.getHours()).padStart(2, '0')}:${String(data.getMinutes()).padStart(2, '0')}`;
 }
 
+// Converte um valor de data do banco num Date no fuso LOCAL.
+//
+// Cuidado com 'YYYY-MM-DD' puro: o JS especifica que data-sem-hora e lida como
+// meia-noite UTC. No Brasil (UTC-3) isso vira 21h do dia anterior, e a tela
+// mostrava o pedido um dia atras do que foi salvo. Por isso a data-so-dia e
+// montada campo a campo, que sempre cai no fuso local.
+function dataLocalDoBanco(valor) {
+  if (!valor) return null;
+  const s = String(valor).trim();
+  const soDia = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (soDia) {
+    return new Date(Number(soDia[1]), Number(soDia[2]) - 1, Number(soDia[3]));
+  }
+  // Com hora junto ('2026-09-02T14:30:00') o JS ja usa o fuso local quando nao
+  // ha 'Z' nem offset, entao o construtor normal serve.
+  const data = new Date(s);
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
 // Formata data para exibição
 function formatarData(timestamp) {
-  if (!timestamp) return '-';
-  const data = new Date(timestamp);
-  return data.toLocaleDateString('pt-BR');
+  const data = dataLocalDoBanco(timestamp);
+  return data ? data.toLocaleDateString('pt-BR') : '-';
 }
 
 // Formata data ISO para exibição
 function formatarDataISO(dataISO) {
-  if (!dataISO) return '-';
-  const data = new Date(dataISO);
-  return data.toLocaleDateString('pt-BR');
+  const data = dataLocalDoBanco(dataISO);
+  return data ? data.toLocaleDateString('pt-BR') : '-';
 }
 
 // Calcula o range dinâmico baseado nos horários dos pedidos
@@ -4396,47 +4394,64 @@ function carregarDadosExemplo() {
 }
 
 function normalizarStatus(status) {
-  const bruto = String(status || 'digitacao')
+  const bruto = String(status || 'DIGITAÇÃO')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
+    .toUpperCase()
     .trim();
 
-  if (bruto.includes('aprov')) return 'aprovado';
-  if (bruto.includes('cancel')) return 'cancelado';
-  if (bruto.includes('video')) return 'video';
-  if (bruto.includes('verific')) return 'verificacao';
-  if (bruto.includes('digit')) return 'digitacao';
+  if (bruto.includes('APROV')) return 'APROVADO';
+  if (bruto.includes('CANCEL')) return 'CANCELADO';
+  if (bruto.includes('VIDEO')) return 'VIDEO REALIZADA';
+  if (bruto.includes('VERIFIC')) return 'VERIFICAÇÃO';
+  if (bruto.includes('DIGIT')) return 'DIGITAÇÃO';
 
-  const statusLimpo = bruto.replace(/\s+/g, '_');
-  const statusValidos = ['aprovado', 'cancelado', 'video', 'verificacao', 'digitacao'];
-  return statusValidos.includes(statusLimpo) ? statusLimpo : 'digitacao';
+  return 'DIGITAÇÃO';
+}
+
+function getStatusSlug(status) {
+  const norm = normalizarStatus(status);
+  switch (norm) {
+    case 'APROVADO': return 'aprovado';
+    case 'CANCELADO': return 'cancelado';
+    case 'VIDEO REALIZADA': return 'video';
+    case 'VERIFICAÇÃO': return 'verificacao';
+    case 'DIGITAÇÃO':
+    default:
+      return 'digitacao';
+  }
 }
 
 function getStatusLabel(status) {
   switch (normalizarStatus(status)) {
-    case 'aprovado':
+    case 'APROVADO':
       return 'Aprovado';
-    case 'cancelado':
+    case 'CANCELADO':
       return 'Cancelado';
-    case 'video':
-      return 'V\u00eddeo realizada';
-    case 'verificacao':
-      return 'Verifica\u00e7\u00e3o';
-    case 'digitacao':
+    case 'VIDEO REALIZADA':
+      return 'Vídeo realizada';
+    case 'VERIFICAÇÃO':
+      return 'Verificação';
+    case 'DIGITAÇÃO':
     default:
-      return 'Digita\u00e7\u00e3o';
+      return 'Digitação';
   }
 }
 
 function deduplicarPedidosMaisRecentes(lista) {
   if (!Array.isArray(lista) || lista.length === 0) return [];
 
+  // Garante ordenação decrescente por ID para pegar a versão mais recente de cada pedido
+  const ordenada = [...lista].sort((a, b) => {
+    const idA = Number(a?.id || 0);
+    const idB = Number(b?.id || 0);
+    return idB - idA;
+  });
+
   const vistos = new Set();
   const resultado = [];
 
-  // Com a consulta ordenada por data/id desc, o primeiro item de cada pedido é o mais recente.
-  lista.forEach((pedido) => {
+  ordenada.forEach((pedido) => {
     const numero = String(pedido?.pedido ?? pedido?.num_pedido ?? '').trim();
     if (!numero) {
       resultado.push(pedido);
@@ -4476,11 +4491,7 @@ function renderizarTimeline() {
     emptyBox.className = 'empty-state-box';
     emptyBox.innerHTML = `
       <div class="empty-state-icon">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="8" x2="12" y2="12"></line>
-          <line x1="12" y1="16" x2="12.01" y2="16"></line>
-        </svg>
+        <svg width="32" height="32" viewBox="0 0 256 256" fill="currentColor"><path d="M236.8,188.09,149.35,36.22h0a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM222.93,203.8a8.5,8.5,0,0,1-7.48,4.2H40.55a8.5,8.5,0,0,1-7.48-4.2,7.59,7.59,0,0,1,0-7.72L120.52,44.21a8.75,8.75,0,0,1,15,0l87.45,151.87A7.59,7.59,0,0,1,222.93,203.8ZM120,144V104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,180Z"/></svg>
       </div>
       <div class="empty-state-text">Nenhum pedido encontrado para o período selecionado.</div>
     `;
@@ -4522,8 +4533,8 @@ function obterStatusDominante(pedidos) {
   };
 
   pedidos.forEach((p) => {
-    const status = normalizarStatus(p.status);
-    if (statusCount[status] !== undefined) statusCount[status]++;
+    const slug = getStatusSlug(p.status);
+    if (statusCount[slug] !== undefined) statusCount[slug]++;
   });
 
   let statusDominante = 'digitacao';
@@ -4752,9 +4763,9 @@ function renderizarTimelineMultiDias(container, timelineContainer) {
     };
     
     pedidosDoDia.forEach(p => {
-      const status = normalizarStatus(p.status);
-      if (statusCount[status] !== undefined) {
-        statusCount[status]++;
+      const slug = getStatusSlug(p.status);
+      if (statusCount[slug] !== undefined) {
+        statusCount[slug]++;
       }
     });
     
@@ -4839,11 +4850,7 @@ function renderizarTabela(dados) {
     emptyBox.className = 'empty-state-box';
     emptyBox.innerHTML = `
       <div class="empty-state-icon">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="8" x2="12" y2="12"></line>
-          <line x1="12" y1="16" x2="12.01" y2="16"></line>
-        </svg>
+        <svg width="40" height="40" viewBox="0 0 256 256" fill="currentColor"><path d="M236.8,188.09,149.35,36.22h0a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM222.93,203.8a8.5,8.5,0,0,1-7.48,4.2H40.55a8.5,8.5,0,0,1-7.48-4.2,7.59,7.59,0,0,1,0-7.72L120.52,44.21a8.75,8.75,0,0,1,15,0l87.45,151.87A7.59,7.59,0,0,1,222.93,203.8ZM120,144V104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,180Z"/></svg>
       </div>
       <div class="empty-state-text">Nenhum pedido encontrado para o período selecionado.</div>
     `;
@@ -4897,7 +4904,8 @@ function renderizarTabela(dados) {
 // Retorna o ícone de status
 function getStatusIcon(status) {
   const statusNormalizado = normalizarStatus(status);
-  return `<span class="status-badge status-${statusNormalizado}">
+  const slug = getStatusSlug(statusNormalizado);
+  return `<span class="status-badge status-${slug}">
     <span class="status-badge-dot"></span>
     <span>${getStatusLabel(statusNormalizado)}</span>
   </span>`;
@@ -4909,40 +4917,103 @@ if (btnConsultaBuscar) {
   btnConsultaBuscar.addEventListener('click', async () => {
     const dataDe = document.getElementById('consulta-data-de')?.value;
     const dataAte = document.getElementById('consulta-data-ate')?.value;
-    const status = document.getElementById('consulta-status')?.value;
+    const statusFiltro = document.getElementById('consulta-status')?.value?.trim();
     
     // Atualiza o range de datas atual
     currentDateRange = { dataDe: dataDe || null, dataAte: dataAte || null };
     
     try {
+      const buscaTexto = document.getElementById('consulta-busca')?.value?.trim().toLowerCase();
+
+      // Se o usuário digitou uma busca específica (pedido, CPF, cliente), não restringe por data e filtra no banco
       const resultado = await window.electronAPI.buscarPedidos({
-        dataDe: dataDe || undefined,
-        dataAte: dataAte || undefined,
-        status: status || undefined,
+        busca: buscaTexto || undefined,
+        dataDe: buscaTexto ? undefined : (dataDe || undefined),
+        dataAte: buscaTexto ? undefined : (dataAte || undefined),
         usuario: currentUser?.email || undefined
       });
       
       if (resultado.success && resultado.data) {
         let dadosFiltrados = deduplicarPedidosMaisRecentes(resultado.data);
-        const vendaFiltro = document.getElementById('consulta-venda')?.value;
         
+        // Filtro de Status Insensível a maiúsculas/minúsculas e acentos
+        if (statusFiltro) {
+          const statusEsperado = normalizarStatus(statusFiltro);
+          dadosFiltrados = dadosFiltrados.filter(p => normalizarStatus(p.status) === statusEsperado);
+        }
+
+        // Filtro de Venda
+        const vendaFiltro = document.getElementById('consulta-venda')?.value;
         if (vendaFiltro === 'sim') {
           dadosFiltrados = dadosFiltrados.filter(p => ehVendaSim(p.venda ?? p.VENDA));
         } else if (vendaFiltro === 'nao') {
           dadosFiltrados = dadosFiltrados.filter(p => !ehVendaSim(p.venda ?? p.VENDA));
         }
 
+        // Filtro de Tipo (CPF / CNPJ)
+        const tipoFiltro = document.getElementById('consulta-tipo')?.value?.trim().toUpperCase();
+        if (tipoFiltro) {
+          dadosFiltrados = dadosFiltrados.filter(p => {
+            const versao = String(p.versao || p.certificado || '').toUpperCase();
+            const tipo = String(p.tipo || '').toUpperCase();
+            return versao.includes(tipoFiltro) || tipo.includes(tipoFiltro);
+          });
+        }
+
+        // Filtro de Atendimento (Video / Presencial)
+        const atendimentoFiltro = document.getElementById('consulta-atendimento')?.value?.trim().toLowerCase();
+        if (atendimentoFiltro) {
+          dadosFiltrados = dadosFiltrados.filter(p => {
+            const atend = String(p.atendimento || p.modalidade || '').trim().toLowerCase();
+            return atend.includes(atendimentoFiltro);
+          });
+        }
+
+        // Barra de Pesquisa de Pedidos (Busca por Número, Cliente, CPF, CNPJ, E-mail, Certificado ou Observação)
+        if (buscaTexto) {
+          const buscaDigitos = buscaTexto.replace(/\D/g, '');
+          dadosFiltrados = dadosFiltrados.filter(p => {
+            const numPedido = String(p.pedido || p.id || '').toLowerCase();
+            const numPedidoDigitos = numPedido.replace(/\D/g, '');
+            const nomeCliente = String(p.nome || p.razao_social || '').toLowerCase();
+            const emailCliente = String(p.email || '').toLowerCase();
+            const versaoCert = String(p.versao || p.certificado || '').toLowerCase();
+            const obs = String(p.obs || p.observacao || p.comentarios || '').toLowerCase();
+            const cpf = String(p.cpf || p.CPF || p.documento || '').toLowerCase();
+            const cpfDigitos = cpf.replace(/\D/g, '');
+            const cnpj = String(p.cnpj || p.CNPJ || '').toLowerCase();
+            const cnpjDigitos = cnpj.replace(/\D/g, '');
+
+            const matchTexto = numPedido.includes(buscaTexto) ||
+              nomeCliente.includes(buscaTexto) ||
+              emailCliente.includes(buscaTexto) ||
+              versaoCert.includes(buscaTexto) ||
+              obs.includes(buscaTexto) ||
+              cpf.includes(buscaTexto) ||
+              cnpj.includes(buscaTexto);
+
+            const matchDigitos = Boolean(buscaDigitos.length >= 2 && (
+              (cpfDigitos && cpfDigitos.includes(buscaDigitos)) ||
+              (cnpjDigitos && cnpjDigitos.includes(buscaDigitos)) ||
+              (numPedidoDigitos && numPedidoDigitos.includes(buscaDigitos))
+            ));
+
+            return matchTexto || matchDigitos;
+          });
+        }
+
         pedidosData = dadosFiltrados.map(p => ({
           num_pedido: p.pedido || p.id,
           hora: p.hora || '00:00',
           nome: p.nome || 'N/A',
-          status: (p.status || 'digitacao').toLowerCase(),
+          status: normalizarStatus(p.status),
           versao: p.versao || p.certificado || '-',
           data: formatarDataISO(p.data),
           comissao: p.comissao ?? p.COMISSAO ?? p.valor_comissao ?? p['COMISSAO'] ?? 0,
           preco: p.preco ?? p.PRECO ?? p['PRECO'] ?? 0,
           preco_certificado: p.preco_certificado ?? p.precoCertificado ?? p.PRECO_CERTIFICADO ?? p['PRECO CERTIFICADO'] ?? 0,
-          venda: p.venda ?? p.VENDA ?? ''
+          venda: p.venda ?? p.VENDA ?? '',
+          atendimento: p.atendimento ?? p.modalidade ?? ''
         }));
       } else {
         pedidosData = [];
@@ -4956,6 +5027,54 @@ if (btnConsultaBuscar) {
       console.error('Erro ao buscar pedidos:', error);
       atualizarRelatorioConsulta([]);
     }
+  });
+}
+
+// Live search ao digitar na barra de busca
+const inputBuscaConsulta = document.getElementById('consulta-busca');
+if (inputBuscaConsulta) {
+  let debounceTimeout = null;
+  inputBuscaConsulta.addEventListener('input', () => {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(() => {
+      btnConsultaBuscar?.click();
+    }, 250);
+  });
+  inputBuscaConsulta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      clearTimeout(debounceTimeout);
+      btnConsultaBuscar?.click();
+    }
+  });
+}
+
+// Atualização automática ao trocar os selects de filtro
+['consulta-status', 'consulta-tipo', 'consulta-atendimento', 'consulta-venda'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('change', () => {
+      btnConsultaBuscar?.click();
+    });
+  }
+});
+
+// Botão Limpar Filtros
+const btnConsultaLimpar = document.getElementById('btn-consulta-limpar');
+if (btnConsultaLimpar) {
+  btnConsultaLimpar.addEventListener('click', () => {
+    const inputBusca = document.getElementById('consulta-busca');
+    const selectStatus = document.getElementById('consulta-status');
+    const selectTipo = document.getElementById('consulta-tipo');
+    const selectAtendimento = document.getElementById('consulta-atendimento');
+    const selectVenda = document.getElementById('consulta-venda');
+
+    if (inputBusca) inputBusca.value = '';
+    if (selectStatus) selectStatus.value = '';
+    if (selectTipo) selectTipo.value = '';
+    if (selectAtendimento) selectAtendimento.value = '';
+    if (selectVenda) selectVenda.value = '';
+
+    btnConsultaBuscar?.click();
   });
 }
 
@@ -5127,7 +5246,7 @@ function mapearPedidoIndicador(pedido) {
 }
 
 function pedidosValidosIndicadores(pedidos) {
-  return pedidos.filter((pedido) => pedido.status === 'aprovado');
+  return pedidos.filter((pedido) => normalizarStatus(pedido.status) === 'APROVADO');
 }
 
 function somarValoresIndicadores(pedidos) {
@@ -5628,7 +5747,7 @@ function renderizarGraficoMesesDinamico() {
   const multiplicadorDesc = 1 - (descontoPercent / 100);
 
   // Filtra pedidos aprovados
-  const pedidosAprovados = (indicadoresTodosPedidos || []).filter(p => p.status === 'aprovado');
+  const pedidosAprovados = (indicadoresTodosPedidos || []).filter(p => normalizarStatus(p.status) === 'APROVADO');
 
   // Coleta os anos a serem exibidos
   let anosExibir = [];
@@ -5813,9 +5932,9 @@ function renderizarDonutIndicadores(container, itens, cores) {
 }
 
 function montarResumoIndicadores(pedidosMes, pedidosAno, limites) {
-  const todosValidos = pedidosValidosIndicadores(pedidosMes);
-  const aprovados = todosValidos.filter((pedido) => pedido.status === 'aprovado');
-  const validos = aprovados; // A análise deve ser estritamente de pedidos aprovados
+  const todosMes = pedidosMes || [];
+  const aprovados = todosMes.filter((pedido) => normalizarStatus(pedido.status) === 'APROVADO');
+  const validos = aprovados; // A análise de valores e vendas é estritamente sobre pedidos aprovados
   
   const descontoPercent = parseNumeroMonetario(document.getElementById('config-desc-total')?.value ?? '20');
   const multiplicadorDesc = 1 - (descontoPercent / 100);
@@ -5872,12 +5991,13 @@ function montarResumoIndicadores(pedidosMes, pedidosAno, limites) {
     pedidosPorHora[hora] = (pedidosPorHora[hora] || 0) + 1;
   });
 
-  const totalMes = Object.values(valoresPorSemana).reduce((a, b) => a + b, 0);
+  const totalMes = valoresPorDia.reduce((a, b) => a + b, 0);
   const ticketMedio = validos.length ? totalMes / validos.length : 0;
-  const taxaAprovacao = todosValidos.length ? (aprovados.length / todosValidos.length) * 100 : 0;
+  const taxaAprovacao = todosMes.length ? (aprovados.length / todosMes.length) * 100 : 0;
 
   const valoresPorMesAno = Array.from({ length: 12 }, () => 0);
-  pedidosValidosIndicadores(pedidosAno).filter((pedido) => pedido.status === 'aprovado').forEach((pedido) => {
+  const aprovadosAno = (pedidosAno || []).filter((pedido) => normalizarStatus(pedido.status) === 'APROVADO');
+  aprovadosAno.forEach((pedido) => {
     if (pedido.mes >= 1 && pedido.mes <= 12) {
       let valorVenda = 0;
       if (ehVendaSim(pedido.venda)) {
@@ -6080,7 +6200,16 @@ function exibirSkeletonsIndicadores() {
   }
 }
 
-async function carregarIndicadores() {
+// Colunas que os indicadores realmente consomem (ver mapearPedidoIndicador e
+// deduplicarPedidosMaisRecentes). A tabela tem 40+ colunas, quase todas de dados
+// pessoais que nao entram em nenhum grafico — trazer '*' de todo o historico era
+// o grosso do tempo de espera desta aba.
+const COLUNAS_INDICADORES =
+  'id,pedido,data,hora,status,versao,certificado,uf,modalidade,venda,comissao,preco_certificado';
+
+// 'reaproveitarCache' evita ir ao banco quando so mudou o mes selecionado: o
+// historico completo ja esta em memoria e o recorte e feito por filtro.
+async function carregarIndicadores({ reaproveitarCache = false } = {}) {
   if (indicadoresCarregando) return;
   indicadoresCarregando = true;
 
@@ -6098,41 +6227,50 @@ async function carregarIndicadores() {
   const atualizarBtn = document.getElementById('indicadores-atualizar');
   if (atualizarBtn) atualizarBtn.disabled = true;
 
-  exibirSkeletonsIndicadores();
+  // Trocar de mês só recorta o que já está em memória — sem skeleton, sem rede.
+  const usarCache = reaproveitarCache && Array.isArray(indicadoresTodosPedidos) && indicadoresTodosPedidos.length > 0;
+  if (!usarCache) exibirSkeletonsIndicadores();
 
   try {
-    // Mesma origem da aba Consulta, com paginação para incluir dados antigos.
-    const todosPedidos = [];
-    const tamanhoLote = 1000;
-    const maxPaginas = 200;
-    let offset = 0;
+    let todosMapped;
 
-    for (let pagina = 0; pagina < maxPaginas; pagina += 1) {
-      const resultado = await window.electronAPI.buscarPedidos({
-        usuario: currentUser?.email || undefined,
-        limit: tamanhoLote,
-        offset
-      });
+    if (usarCache) {
+      todosMapped = indicadoresTodosPedidos;
+    } else {
+      // Mesma origem da aba Consulta, com paginação para incluir dados antigos.
+      const todosPedidos = [];
+      const tamanhoLote = 1000;
+      const maxPaginas = 200;
+      let offset = 0;
 
-      if (!resultado?.success) {
-        throw new Error(resultado?.error || 'Falha ao buscar pedidos para indicadores');
+      for (let pagina = 0; pagina < maxPaginas; pagina += 1) {
+        const resultado = await window.electronAPI.buscarPedidos({
+          usuario: currentUser?.email || undefined,
+          colunas: COLUNAS_INDICADORES,
+          limit: tamanhoLote,
+          offset
+        });
+
+        if (!resultado?.success) {
+          throw new Error(resultado?.error || 'Falha ao buscar pedidos para indicadores');
+        }
+
+        const lote = Array.isArray(resultado.data) ? resultado.data : [];
+        if (lote.length === 0) break;
+
+        todosPedidos.push(...lote);
+        if (lote.length < tamanhoLote) break;
+        offset += lote.length;
       }
 
-      const lote = Array.isArray(resultado.data) ? resultado.data : [];
-      if (lote.length === 0) break;
-
-      todosPedidos.push(...lote);
-      if (lote.length < tamanhoLote) break;
-      offset += lote.length;
+      const todosDeduplicados = deduplicarPedidosMaisRecentes(todosPedidos);
+      todosMapped = todosDeduplicados.map(mapearPedidoIndicador);
+      indicadoresTodosPedidos = todosMapped;
     }
 
-    const todosMapped = todosPedidos.map(mapearPedidoIndicador);
-    const aprovadosMapped = todosMapped.filter((p) => p.status === 'aprovado');
-    indicadoresTodosPedidos = aprovadosMapped;
-
     // Filtra em memória os pedidos do mês e do ano selecionado
-    const pedidosMes = aprovadosMapped.filter((p) => p.dataISO >= limites.inicio && p.dataISO <= limites.fim);
-    const pedidosAno = aprovadosMapped.filter((p) => p.ano === limites.ano);
+    const pedidosMes = todosMapped.filter((p) => p.dataISO >= limites.inicio && p.dataISO <= limites.fim);
+    const pedidosAno = todosMapped.filter((p) => p.ano === limites.ano);
 
     indicadoresUltimoSnapshot = { pedidosMes, pedidosAno, limites };
     renderizarIndicadores(pedidosMes, pedidosAno, limites);
@@ -6173,7 +6311,9 @@ function inicializarIndicadores() {
   if (metaSemana) metaSemana.value = metas.semana;
   if (metaMes) metaMes.value = metas.mes;
 
-  mesInput?.addEventListener('change', carregarIndicadores);
+  // Mudar o mês é só um recorte do histórico que já está carregado; o botão
+  // "atualizar" continua indo ao banco.
+  mesInput?.addEventListener('change', () => carregarIndicadores({ reaproveitarCache: true }));
   metaSemana?.addEventListener('input', renderizarIndicadoresUltimoSnapshot);
   metaMes?.addEventListener('input', renderizarIndicadoresUltimoSnapshot);
   salvarMetaBtn?.addEventListener('click', salvarMetasIndicadores);
@@ -6338,9 +6478,10 @@ function atualizarTituloAbaPedidoAtiva(numeroPedidoInformado) {
   if (!activeTab.data) activeTab.data = {};
   activeTab.data.pedido = numeroPedido;
 
-  const tabTitleEl = document.querySelector('.pedido-tab.active .tab-title');
+  const tabTitleEl = document.querySelector(`.pedido-tab[data-tab-id="${activeTab.id}"] .tab-title`) ||
+                     document.querySelector('.pedido-tab.active .tab-title');
   if (tabTitleEl) {
-    tabTitleEl.textContent = numeroPedido || activeTab.number;
+    tabTitleEl.textContent = numeroPedido || activeTab.number || 'Novo Pedido';
   }
 }
 
@@ -6354,6 +6495,7 @@ function atualizarTituloAbaPedidoAtiva(numeroPedidoInformado) {
   const attachBtn = document.getElementById('attach-btn');
   const previewList = document.getElementById('preview-list');
   const screenshotBtn = document.getElementById('pedido-screenshot-btn');
+  let attachments = [];
 
   console.log('Iniciando sistema de anexos...');
   console.log('Dropzone encontrado:', !!dropzone);
@@ -6420,12 +6562,54 @@ function atualizarTituloAbaPedidoAtiva(numeroPedidoInformado) {
     } 
   });
 
-  if (attachBtn) attachBtn.addEventListener('click', (e) => { 
+  if (attachBtn) attachBtn.addEventListener('click', (e) => {
     console.log('Botão de anexar clicado');
-    e.preventDefault(); 
+    e.preventDefault();
     e.stopPropagation(); // Evita clicar duas vezes (no botão e no dropzone pai)
-    attachmentsInput.click(); 
+    attachmentsInput.click();
   });
+
+  // Botao "Anexar" da barra inferior: unica forma de anexar o primeiro
+  // documento, ja que a secao de Anexos fica oculta enquanto nao houver nenhum.
+  const attachBarBtn = document.getElementById('pedido-attach-btn');
+  if (attachBarBtn) {
+    attachBarBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      attachmentsInput.click();
+    });
+  }
+
+  // Arrastar sobre qualquer ponto da aba tambem anexa — sem isso, com a secao
+  // de Anexos oculta nao haveria area de drop visivel para o primeiro arquivo.
+  const dropzonePanel = document.getElementById('pedido');
+  if (dropzonePanel) {
+    // Contador de dragenter/dragleave: com filhos aninhados, um simples
+    // dragleave dispara ao passar de um filho pra outro mesmo dentro da
+    // area do painel — o contador evita o highlight piscando.
+    let panelDragDepth = 0;
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((evt) => {
+      dropzonePanel.addEventListener(evt, preventDefaults);
+    });
+    dropzonePanel.addEventListener('dragenter', () => {
+      panelDragDepth++;
+      dropzone.classList.add('dragover');
+      dropzonePanel.classList.add('pf6-panel-dragover');
+    });
+    dropzonePanel.addEventListener('dragleave', () => {
+      panelDragDepth = Math.max(0, panelDragDepth - 1);
+      if (panelDragDepth === 0) {
+        dropzone.classList.remove('dragover');
+        dropzonePanel.classList.remove('pf6-panel-dragover');
+      }
+    });
+    dropzonePanel.addEventListener('drop', (e) => {
+      panelDragDepth = 0;
+      dropzone.classList.remove('dragover');
+      dropzonePanel.classList.remove('pf6-panel-dragover');
+      handleFiles(e.dataTransfer?.files || []);
+    });
+  }
   if (screenshotBtn) {
     screenshotBtn.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -6627,73 +6811,42 @@ function atualizarTituloAbaPedidoAtiva(numeroPedidoInformado) {
   function renderAttachments() {
     console.log('renderAttachments chamada, total de anexos:', attachments.length);
     previewList.innerHTML = '';
-    
+
+    // A secao de Anexos so aparece quando ha algum documento anexado.
+    // Sem anexos, o usuario anexa pelo botao da barra inferior ou arrastando
+    // o arquivo sobre a aba (ver dropzonePanel abaixo).
+    const secaoDocs = document.getElementById('section-docs');
+    if (secaoDocs) {
+      secaoDocs.classList.toggle('is-hidden', attachments.length === 0);
+    }
+
     // Mostra/Esconde o placeholder e a lista dependendo de ter anexos
     const placeholder = document.getElementById('dropzone-placeholder');
     if (placeholder) {
       placeholder.style.display = attachments.length > 0 ? 'none' : 'flex';
     }
-    
+
     if (previewList) {
       previewList.style.display = attachments.length > 0 ? 'flex' : 'none';
     }
 
     attachments.forEach((att) => {
-      console.log('Renderizando anexo:', att.name);
       const item = document.createElement('div');
-      item.className = 'preview-item';
+      item.className = 'attachment-row-item';
 
-      if (att.dataUrl) {
-        const img = document.createElement('img');
-        img.className = 'preview-thumb';
-        img.src = att.dataUrl;
-        img.alt = att.name;
-        item.appendChild(img);
-      } else {
-        const thumb = document.createElement('div');
-        thumb.className = 'preview-thumb';
-        thumb.style.display = 'flex';
-        thumb.style.alignItems = 'center';
-        thumb.style.justifyContent = 'center';
-        thumb.innerHTML = `
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-          </svg>
-        `;
-        item.appendChild(thumb);
-      }
-
-      // Tag com o nome do arquivo no topo
-      const nameTag = document.createElement('div');
-      nameTag.className = 'preview-name-tag';
-      nameTag.textContent = att.name;
-      item.appendChild(nameTag);
-
-      // Overlay
-      const overlay = document.createElement('div');
-      overlay.className = 'preview-overlay';
-
-      const info = document.createElement('div');
-      info.className = 'preview-overlay-info';
-      // Tenta formatar a data se disponível, senão usa o nome truncado
-      const hoje = new Date().toLocaleDateString('pt-BR');
-      info.textContent = hoje;
-
-      const actions = document.createElement('div');
-      actions.className = 'preview-overlay-actions';
-
-      const openBtn = document.createElement('button');
-      openBtn.className = 'preview-overlay-btn';
-      openBtn.type = 'button';
-      openBtn.title = 'Visualizar';
-      openBtn.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
+      item.innerHTML = `
+        <span class="attachment-row-name" title="${att.name}">${att.name}</span>
+        <div class="attachment-row-actions">
+          <button type="button" class="attachment-btn-action view-btn" title="Abrir / Visualizar">
+            <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg>
+          </button>
+          <button type="button" class="attachment-btn-action delete-btn" title="Excluir anexo">
+            <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg>
+          </button>
+        </div>
       `;
-      openBtn.addEventListener('click', (e) => {
+
+      item.querySelector('.view-btn')?.addEventListener('click', (e) => {
         e.stopPropagation();
         if (att.path) {
           window.electronAPI.abrirArquivo(att.path);
@@ -6702,43 +6855,19 @@ function atualizarTituloAbaPedidoAtiva(numeroPedidoInformado) {
         }
       });
 
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'preview-overlay-btn remove';
-      removeBtn.type = 'button';
-      removeBtn.title = 'Remover';
-      removeBtn.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        </svg>
-      `;
-      removeBtn.addEventListener('click', async (e) => {
+      item.querySelector('.delete-btn')?.addEventListener('click', async (e) => {
         e.stopPropagation();
-        
-        // Se o arquivo já está no disco, tenta excluir
         if (att.path) {
           try {
-            console.log('Solicitando exclusão de arquivo:', att.path);
-            const res = await window.electronAPI.excluirAnexoPedido({ filePath: att.path });
-            if (!res.success) {
-              console.error('Erro ao excluir arquivo :', res.error);
-            }
+            await window.electronAPI.excluirAnexoPedido({ filePath: att.path });
           } catch (err) {
-            console.error('Falha ao chamar excluirAnexoPedido:', err);
+            console.error('Falha ao excluir anexo:', err);
           }
         }
-
         attachments = attachments.filter(a => a.id !== att.id);
         renderAttachments();
       });
 
-      actions.appendChild(openBtn);
-      actions.appendChild(removeBtn);
-      
-      overlay.appendChild(info);
-      overlay.appendChild(actions);
-      
-      item.appendChild(overlay);
       previewList.appendChild(item);
     });
   }
@@ -6787,7 +6916,8 @@ function atualizarTituloAbaPedidoAtiva(numeroPedidoInformado) {
 
   window.__attachments = {
     list: () => attachments,
-    clear: () => { attachments = []; renderAttachments(); }
+    clear: () => { attachments = []; renderAttachments(); },
+    refresh: () => renderAttachments()
   };
 
   renderAttachments();
@@ -6989,70 +7119,312 @@ pedidoNumeroInput?.addEventListener('input', (e) => {
   atualizarTituloAbaPedidoAtiva(e.target.value);
 });
 
+pedidoNumeroInput?.addEventListener('blur', (e) => {
+  atualizarTituloAbaPedidoAtiva(e.target.value);
+});
+
+pedidoNumeroInput?.addEventListener('change', (e) => {
+  atualizarTituloAbaPedidoAtiva(e.target.value);
+});
+
 // O evento de clique do folderPedidoBtn está gerenciado pela função __openPedidoFolder no index.html
 
 
-// Inicializar listeners de status
-function inicializarStatusListeners() {
-  const statusList = document.querySelector('.status-list');
-  if (!statusList || statusList.dataset.listenersInicializados === '1') return;
-
-  statusList.dataset.listenersInicializados = '1';
-  
-  statusList.addEventListener('change', (e) => {
-    if (e.target.name === 'status') {
-      marcarPedidoAlterado();
+function sincronizarVisualRadiosStatus() {
+  const radios = document.querySelectorAll('#pedido input[name="status"]');
+  radios.forEach(r => {
+    const parent = r.closest('.pf-st') || r.parentElement;
+    if (parent) {
+      parent.setAttribute('data-status', normalizarStatus(r.value));
+      if (r.checked) {
+        parent.classList.add('active', 'selected');
+      } else {
+        parent.classList.remove('active', 'selected');
+      }
     }
   });
 }
+window.sincronizarVisualRadiosStatus = sincronizarVisualRadiosStatus;
+
+// Inicializar listeners de status
+function inicializarStatusListeners() {
+  const statusContainer = document.querySelector('.pf-status') || document.querySelector('.status-list');
+  if (!statusContainer) return;
+  
+  if (statusContainer.dataset.listenersInicializados !== '1') {
+    statusContainer.dataset.listenersInicializados = '1';
+    
+    statusContainer.addEventListener('change', (e) => {
+      if (e.target.name === 'status') {
+        console.log('[statusListener] Mudança de status detectada:', e.target.value);
+        sincronizarVisualRadiosStatus();
+        marcarPedidoAlterado();
+      }
+    });
+  }
+
+  sincronizarVisualRadiosStatus();
+}
 
 // Chamar inicialização
+setTimeout(inicializarStatusListeners, 300);
 setTimeout(inicializarStatusListeners, 1000);
+
+// ---- Mini modal de pedidos por status (chips do topo) ----
+
+let statusPopoverAtivo = null;
+
+function fecharStatusPopover() {
+  if (statusPopoverAtivo) {
+    statusPopoverAtivo.remove();
+    statusPopoverAtivo = null;
+  }
+}
+
+document.addEventListener('click', (e) => {
+  if (statusPopoverAtivo && !statusPopoverAtivo.contains(e.target) && !e.target.closest('.status-pill')) {
+    fecharStatusPopover();
+  }
+}, true);
+
+async function abrirStatusPopover(status, chipEl) {
+  fecharStatusPopover();
+
+  const popover = document.createElement('div');
+  popover.className = 'status-popover';
+  popover.innerHTML = `<div class="status-popover-loading">Carregando...</div>`;
+  document.body.appendChild(popover);
+  statusPopoverAtivo = popover;
+
+  // Posiciona abaixo do chip com contenção de borda
+  const rect = chipEl.getBoundingClientRect();
+  popover.style.top = (rect.bottom + 6) + 'px';
+  
+  // Se ultrapassar a margem direita da janela, alinha pela direita do chip
+  const larguraEstimada = 320;
+  if (rect.left + larguraEstimada > window.innerWidth - 12) {
+    popover.style.left = 'auto';
+    popover.style.right = Math.max(10, window.innerWidth - rect.right) + 'px';
+  } else {
+    popover.style.left = rect.left + 'px';
+    popover.style.right = 'auto';
+  }
+
+  try {
+    const resultado = await window.electronAPI.buscarPedidos({ status });
+
+    if (!resultado?.success || !resultado.data?.length) {
+      popover.innerHTML = `<div class="status-popover-empty">Nenhum pedido encontrado.</div>`;
+      return;
+    }
+
+    const pedidosUnicos = deduplicarPedidosMaisRecentes(resultado.data || []);
+    if (!pedidosUnicos.length) {
+      popover.innerHTML = `<div class="status-popover-empty">Nenhum pedido encontrado.</div>`;
+      return;
+    }
+
+    const rows = pedidosUnicos.map(p => {
+      const numero = p.pedido || '—';
+      const nome = p.nome || p.razao_social || p.email || '—';
+      return `
+        <div class="sp-row">
+          <div class="sp-info">
+            <span class="sp-num">${numero}</span>
+            <span class="sp-sep">-</span>
+            <span class="sp-nome" title="${nome}">${nome}</span>
+          </div>
+          <button class="sp-open-btn" data-pedido="${numero}" title="Abrir pedido ${numero} em nova aba" aria-label="Abrir pedido">
+            <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor">
+              <path d="M224,104a8,8,0,0,1-16,0V59.32l-82.34,82.35a8,8,0,0,1-11.32-11.32L196.68,48H152a8,8,0,0,1,0-16h64a8,8,0,0,1,8,8Zm-40,24a8,8,0,0,0-8,8v72H48V80h72a8,8,0,0,0,0-16H48A16,16,0,0,0,32,80V208a16,16,0,0,0,16,16H176a16,16,0,0,0,16-16V136A8,8,0,0,0,184,128Z"/>
+            </svg>
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    popover.innerHTML = `
+      <div class="sp-header">${status} <span class="sp-count">${pedidosUnicos.length}</span></div>
+      <div class="sp-list">${rows}</div>
+    `;
+
+    // Eventos dos botões
+    popover.querySelectorAll('.sp-open-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const numeroPedido = btn.dataset.pedido;
+        fecharStatusPopover();
+        if (numeroPedido && typeof window.__abrirPedidoConsultaEmNovaAba === 'function') {
+          await window.__abrirPedidoConsultaEmNovaAba(numeroPedido);
+        } else if (numeroPedido && typeof window.__addPedidoTab === 'function') {
+          window.__addPedidoTab();
+          const pInput = document.getElementById('pedido-numero-input');
+          if (pInput) {
+            pInput.value = numeroPedido;
+            pInput.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          if (typeof buscarEPreencherPedido === 'function') {
+            await buscarEPreencherPedido(numeroPedido);
+          }
+        }
+      });
+    });
+
+  } catch (err) {
+    popover.innerHTML = `<div class="status-popover-empty">Erro ao carregar pedidos.</div>`;
+    console.error('[statusPopover] Erro:', err);
+  }
+}
 
 async function atualizarContadoresStatus() {
   const container = document.getElementById('pedido-status-counts');
   if (!container) return;
 
   try {
-    const resultado = await window.electronAPI.buscarPedidos({
-      usuario: currentUser?.email || undefined
-    });
+    const resultado = await window.electronAPI.contarStatusPedidos();
     if (!resultado || !resultado.success) return;
 
-    const pedidos = deduplicarPedidosMaisRecentes(resultado.data || []);
-    
-    // Contadores
-    let counts = {
-      digitacao: 0,
-      video: 0,
-      verificacao: 0,
-      aprovado: 0,
-      cancelado: 0
-    };
-
-    pedidos.forEach(p => {
-      const st = String(p.status || '').toLowerCase();
-      if (counts.hasOwnProperty(st)) {
-        counts[st]++;
-      }
-    });
+    const countVideo = resultado.video || 0;
+    const countVerificacao = resultado.verificacao || 0;
 
     container.innerHTML = `
       <div class="pedido-status-pills">
-        <span class="status-pill status-vid" title="Vídeo Realizada">
+        <span class="status-pill status-vid" title="Vídeo Realizada" data-status="VIDEO REALIZADA" style="cursor:pointer;">
           <span class="status-pill-dot"></span>
-          VÍDEO <strong class="status-pill-val">${counts.video}</strong>
+          VÍDEO <strong class="status-pill-val">${countVideo}</strong>
         </span>
-        <span class="status-pill status-ver" title="Verificação">
+        <span class="status-pill status-ver" title="Verificação" data-status="VERIFICAÇÃO" style="cursor:pointer;">
           <span class="status-pill-dot"></span>
-          VERIFICAÇÃO <strong class="status-pill-val">${counts.verificacao}</strong>
+          VERIFICAÇÃO <strong class="status-pill-val">${countVerificacao}</strong>
         </span>
       </div>
     `;
+
+    // Registra click em cada chip
+    container.querySelectorAll('.status-pill').forEach(pill => {
+      pill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const status = pill.dataset.status;
+        if (statusPopoverAtivo) {
+          fecharStatusPopover();
+        } else {
+          abrirStatusPopover(status, pill);
+        }
+      });
+    });
+
   } catch (error) {
     console.error('Erro ao atualizar contadores de status:', error);
   }
 }
 window.atualizarContadoresStatus = atualizarContadoresStatus;
 
+// Inicializa contadores imediatamente
+setTimeout(() => window.atualizarContadoresStatus(), 300);
+setTimeout(() => window.atualizarContadoresStatus(), 1200);
 
+
+// ── Atualização silenciosa ──────────────────────────────────────────────────
+// O processo principal baixa a nova versão sozinho e só publica o estado aqui.
+// A interface nunca interrompe o usuário: mostra um ícone discreto no topo e,
+// se ele clicar depois de pronto, explica que a troca acontece ao reabrir.
+(() => {
+  const botao = document.getElementById('update-btn');
+  if (!botao || !window.electronAPI?.onUpdateStatus) return;
+
+  let versaoPronta = null;
+
+  window.electronAPI.onUpdateStatus((info) => {
+    const estado = info?.estado;
+
+    if (estado === 'baixando') {
+      const pct = Number.isFinite(info?.progresso) ? ` (${info.progresso}%)` : '';
+      botao.hidden = false;
+      botao.classList.add('baixando');
+      botao.classList.remove('pronta');
+      botao.title = `Baixando atualização${pct}`;
+      return;
+    }
+
+    if (estado === 'pronta') {
+      versaoPronta = info?.versao || null;
+      botao.hidden = false;
+      botao.classList.remove('baixando');
+      botao.classList.add('pronta');
+      botao.title = 'Atualização pronta — clique para saber mais';
+      return;
+    }
+
+    // 'erro' ou qualquer outro estado: some sem alarde. Uma falha de rede não é
+    // problema do usuário, e o app segue funcionando na versão atual.
+    botao.hidden = true;
+    botao.classList.remove('baixando', 'pronta');
+  });
+
+  botao.addEventListener('click', () => {
+    if (!botao.classList.contains('pronta')) return;
+    const versao = versaoPronta ? ` <strong>${versaoPronta}</strong>` : '';
+    showCustomModal({
+      title: 'Atualização pronta',
+      message: `A versão${versao} já foi baixada.<br><br>`
+        + 'O Companion será atualizado automaticamente na próxima inicialização — '
+        + 'basta fechar e abrir o aplicativo quando for conveniente.',
+      confirmText: 'Entendi',
+      hideCancel: true,
+      useHTML: true
+    });
+  });
+})();
+
+// ── Criação de contas (Configurações → Usuários) ────────────────────────────
+// Saiu da tela de login: só quem já está autenticado cria conta para outra
+// pessoa. O processo principal recusa a chamada sem sessão ativa.
+(() => {
+  const btn = document.getElementById('config-criar-usuario-btn');
+  if (!btn) return;
+
+  const campoNome = document.getElementById('config-novo-usuario-nome');
+  const campoEmail = document.getElementById('config-novo-usuario-email');
+  const campoSenha = document.getElementById('config-novo-usuario-senha');
+  const campoSenha2 = document.getElementById('config-novo-usuario-senha2');
+  const msg = document.getElementById('config-novo-usuario-msg');
+
+  const avisar = (texto, tipo) => {
+    if (!msg) return;
+    msg.textContent = texto;
+    msg.className = `config-usuario-msg ${tipo || ''}`.trim();
+    if (texto) setTimeout(() => { if (msg.textContent === texto) msg.textContent = ''; }, 6000);
+  };
+
+  [campoNome, campoEmail, campoSenha, campoSenha2].forEach((c) => {
+    c?.addEventListener('input', () => avisar(''));
+  });
+
+  btn.addEventListener('click', async () => {
+    const nome = campoNome?.value.trim() || '';
+    const email = campoEmail?.value.trim() || '';
+    const senha = campoSenha?.value || '';
+    const senha2 = campoSenha2?.value || '';
+
+    if (!nome || !email || !senha) return avisar('Preencha nome, e-mail e senha.', 'erro');
+    if (senha.length < 6) return avisar('A senha precisa ter no mínimo 6 caracteres.', 'erro');
+    if (senha !== senha2) return avisar('As senhas não coincidem.', 'erro');
+
+    btn.disabled = true;
+    avisar('Criando conta...', '');
+    try {
+      const resultado = await window.electronAPI?.criarUsuario?.({ nome, email, senha });
+      if (!resultado?.success) {
+        avisar(resultado?.error || 'Não foi possível criar a conta.', 'erro');
+        return;
+      }
+      avisar(`Conta criada para ${email}.`, 'ok');
+      [campoNome, campoEmail, campoSenha, campoSenha2].forEach((c) => { if (c) c.value = ''; });
+    } catch (error) {
+      console.error('Erro ao criar usuário:', error);
+      avisar('Falha de comunicação ao criar a conta.', 'erro');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();

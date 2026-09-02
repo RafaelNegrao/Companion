@@ -2,10 +2,7 @@
 const { ipcRenderer } = require('electron');
 
 const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
 const errorMessage = document.getElementById('error-message');
-const registerErrorMessage = document.getElementById('register-error-message');
-const registerSuccessMessage = document.getElementById('register-success-message');
 const usernameInput = document.getElementById('username');
 const passwordInput = document.getElementById('password');
 const rememberCheckbox = document.getElementById('remember');
@@ -43,28 +40,29 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// Elementos para alternar entre login e cadastro
-const showRegisterBtn = document.getElementById('show-register');
-const showLoginBtn = document.getElementById('show-login');
-const loginBox = document.querySelector('.login-box:not(.register-box)');
-const registerBox = document.querySelector('.register-box');
+// Elementos para alternar entre login e recuperação de senha
+const showRecoverBtn = document.getElementById('show-recover');
+const showLoginFromRecoverBtn = document.getElementById('show-login-from-recover');
+const loginBox = document.querySelector('.login-box:not(.recover-box)');
+const recoverBox = document.querySelector('.recover-box');
 const loginContainer = document.querySelector('.login-container');
 
-// Alternar para tela de cadastro
-showRegisterBtn.addEventListener('click', (e) => {
+function mostrarApenas(boxParaMostrar) {
+  [loginBox, recoverBox].forEach((box) => {
+    if (box) box.classList.toggle('hidden', box !== boxParaMostrar);
+  });
+}
+
+// Alternar para tela de recuperação de senha
+showRecoverBtn?.addEventListener('click', (e) => {
   e.preventDefault();
-  loginBox.classList.add('hidden');
-  registerBox.classList.remove('hidden');
-  loginContainer.classList.add('register-mode');
-  document.getElementById('reg-name').focus();
+  mostrarApenas(recoverBox);
+  document.getElementById('recover-email')?.focus();
 });
 
-// Alternar para tela de login
-showLoginBtn.addEventListener('click', (e) => {
+showLoginFromRecoverBtn?.addEventListener('click', (e) => {
   e.preventDefault();
-  registerBox.classList.add('hidden');
-  loginBox.classList.remove('hidden');
-  loginContainer.classList.remove('register-mode');
+  mostrarApenas(loginBox);
   usernameInput.focus();
 });
 
@@ -112,65 +110,6 @@ loginForm.addEventListener('submit', async (e) => {
 });
 
 // CADASTRO
-registerForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const nome = document.getElementById('reg-name').value.trim();
-  const email = document.getElementById('reg-email').value.trim().toLowerCase();
-  const senha = document.getElementById('reg-password').value;
-  const confirmarSenha = document.getElementById('reg-confirm-password').value;
-  const privilegio = 'usuario';
-
-  if (!nome || !email || !senha || !confirmarSenha) {
-    showRegisterError('Por favor, preencha todos os campos');
-    return;
-  }
-
-  if (senha !== confirmarSenha) {
-    showRegisterError('As senhas não coincidem');
-    return;
-  }
-
-  if (senha.length < 6) {
-    showRegisterError('A senha deve ter no mínimo 6 caracteres');
-    return;
-  }
-
-  const registerButton = registerForm.querySelector('.login-button');
-  const originalButtonText = registerButton.innerHTML;
-  registerButton.innerHTML = '<span>Cadastrando...</span>';
-  registerButton.disabled = true;
-
-  try {
-    const resultado = await ipcRenderer.invoke('auth-register', {
-      nome,
-      email,
-      senha,
-      privilegio
-    });
-
-    if (!resultado?.success || !resultado?.data) {
-      showRegisterError(resultado?.error || 'Erro ao criar conta');
-      registerButton.innerHTML = originalButtonText;
-      registerButton.disabled = false;
-      return;
-    }
-
-    showRegisterSuccess('Conta criada com sucesso! Redirecionando...');
-    registerForm.reset();
-
-    setTimeout(() => {
-      localStorage.setItem('user', JSON.stringify(resultado.data));
-      ipcRenderer.send('login-success', resultado.data);
-    }, 1200);
-  } catch (err) {
-    showRegisterError('Erro ao conectar com o servidor');
-    console.error('Erro de cadastro:', err);
-    registerButton.innerHTML = originalButtonText;
-    registerButton.disabled = false;
-  }
-});
-
 function showError(message) {
   errorMessage.textContent = message;
   errorMessage.classList.add('show');
@@ -178,22 +117,6 @@ function showError(message) {
   setTimeout(() => {
     errorMessage.classList.remove('show');
   }, 3000);
-}
-
-function showRegisterError(message) {
-  registerSuccessMessage.classList.remove('show');
-  registerErrorMessage.textContent = message;
-  registerErrorMessage.classList.add('show');
-
-  setTimeout(() => {
-    registerErrorMessage.classList.remove('show');
-  }, 3000);
-}
-
-function showRegisterSuccess(message) {
-  registerErrorMessage.classList.remove('show');
-  registerSuccessMessage.textContent = message;
-  registerSuccessMessage.classList.add('show');
 }
 
 // Limpa mensagem de erro ao digitar
@@ -205,12 +128,129 @@ passwordInput.addEventListener('input', () => {
   errorMessage.classList.remove('show');
 });
 
-// Limpa mensagens do cadastro ao digitar
-['reg-name', 'reg-email', 'reg-password', 'reg-confirm-password'].forEach((id) => {
-  const input = document.getElementById(id);
-  if (!input) return;
-  input.addEventListener('input', () => {
-    registerErrorMessage.classList.remove('show');
-    registerSuccessMessage.classList.remove('show');
-  });
+// RECUPERAÇÃO DE SENHA (fluxo em 2 etapas, sem link — só código, ver LOGIN-MULTIUSUARIO.md)
+const recoverRequestForm = document.getElementById('recover-request-form');
+const recoverConfirmForm = document.getElementById('recover-confirm-form');
+const recoverRequestError = document.getElementById('recover-request-error');
+const recoverRequestSuccess = document.getElementById('recover-request-success');
+const recoverConfirmError = document.getElementById('recover-confirm-error');
+const recoverConfirmSuccess = document.getElementById('recover-confirm-success');
+const recoverEmailInput = document.getElementById('recover-email');
+let emailEmRecuperacao = '';
+
+function showRecoverRequestError(message) {
+  recoverRequestSuccess.classList.remove('show');
+  recoverRequestError.textContent = message;
+  recoverRequestError.classList.add('show');
+}
+
+function showRecoverConfirmError(message) {
+  recoverConfirmSuccess.classList.remove('show');
+  recoverConfirmError.textContent = message;
+  recoverConfirmError.classList.add('show');
+}
+
+// Etapa 1: pede o código por e-mail
+recoverRequestForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const email = recoverEmailInput.value.trim().toLowerCase();
+  if (!email) {
+    showRecoverRequestError('Informe o e-mail.');
+    return;
+  }
+
+  const btn = recoverRequestForm.querySelector('.login-button');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '<span>Enviando...</span>';
+  btn.disabled = true;
+
+  try {
+    const resultado = await ipcRenderer.invoke('auth-recuperar-senha', { email });
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+
+    if (!resultado?.success) {
+      showRecoverRequestError(resultado?.error || 'Erro ao solicitar recuperação de senha');
+      return;
+    }
+
+    emailEmRecuperacao = email;
+    recoverRequestSuccess.textContent = 'Código enviado! Confira seu email.';
+    recoverRequestSuccess.classList.add('show');
+
+    setTimeout(() => {
+      recoverRequestForm.classList.add('hidden');
+      recoverConfirmForm.classList.remove('hidden');
+      document.getElementById('recover-code')?.focus();
+    }, 900);
+  } catch (err) {
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+    showRecoverRequestError('Erro ao conectar com o servidor');
+    console.error('Erro ao solicitar recuperação de senha:', err);
+  }
+});
+
+// Etapa 2: confirma o código e troca a senha
+recoverConfirmForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const codigo = document.getElementById('recover-code').value.trim();
+  const novaSenha = document.getElementById('recover-new-password').value;
+
+  if (!codigo || !novaSenha) {
+    showRecoverConfirmError('Preencha o código e a nova senha.');
+    return;
+  }
+
+  if (novaSenha.length < 6) {
+    showRecoverConfirmError('A senha deve ter no mínimo 6 caracteres');
+    return;
+  }
+
+  const btn = recoverConfirmForm.querySelector('.login-button');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '<span>Confirmando...</span>';
+  btn.disabled = true;
+
+  try {
+    const resultado = await ipcRenderer.invoke('auth-confirmar-recuperacao', {
+      email: emailEmRecuperacao,
+      codigo,
+      novaSenha
+    });
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+
+    if (!resultado?.success) {
+      showRecoverConfirmError(resultado?.error || 'Erro ao confirmar recuperação de senha');
+      return;
+    }
+
+    recoverConfirmSuccess.textContent = 'Senha alterada com sucesso! Faça login.';
+    recoverConfirmSuccess.classList.add('show');
+
+    setTimeout(() => {
+      recoverConfirmForm.reset();
+      recoverConfirmForm.classList.add('hidden');
+      recoverRequestForm.classList.remove('hidden');
+      recoverRequestForm.reset();
+      recoverConfirmSuccess.classList.remove('show');
+      mostrarApenas(loginBox);
+      usernameInput.value = emailEmRecuperacao;
+      passwordInput.focus();
+    }, 1200);
+  } catch (err) {
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+    showRecoverConfirmError('Erro ao conectar com o servidor');
+    console.error('Erro ao confirmar recuperação de senha:', err);
+  }
+});
+
+// Limpa mensagens de recuperação ao digitar
+recoverEmailInput?.addEventListener('input', () => recoverRequestError.classList.remove('show'));
+['recover-code', 'recover-new-password'].forEach((id) => {
+  document.getElementById(id)?.addEventListener('input', () => recoverConfirmError.classList.remove('show'));
 });
