@@ -1,4 +1,32 @@
-const { app, BrowserWindow, screen, ipcMain, shell, safeStorage, desktopCapturer } = require('electron');
+// No Windows, dependendo de qual terminal roda o app (conhost, ConPTY da VS
+// Code, etc.), acentos escritos em UTF-8 pelo console.log saem virando
+// "├ç├úo" e afins — e mudar a code page do console (chcp) nem sempre
+// resolve, porque alguns terminais nao decodificam por code page de jeito
+// nenhum. A unica forma de garantir que o log sai legivel em qualquer
+// terminal e nunca escrever o acento: intercepta console.log/error/warn/info
+// aqui em cima, antes de qualquer outro modulo logar algo, e tira os acentos
+// de toda string antes de imprimir.
+function removerAcentos(texto) {
+  // Evita colar os caracteres de acento combinante direto no fonte (o
+  // proprio editor/terminal que grava este arquivo pode corromper esse
+  // trecho do jeito que estamos tentando corrigir); filtra pela faixa
+  // Unicode deles (U+0300-U+036F) em vez disso.
+  return Array.from(texto.normalize('NFD'))
+    .filter((caractere) => {
+      const codigo = caractere.codePointAt(0);
+      return codigo < 0x0300 || codigo > 0x036f;
+    })
+    .join('');
+}
+
+['log', 'error', 'warn', 'info'].forEach((metodo) => {
+  const original = console[metodo].bind(console);
+  console[metodo] = (...args) => {
+    original(...args.map((arg) => (typeof arg === 'string' ? removerAcentos(arg) : arg)));
+  };
+});
+
+const { app, BrowserWindow, screen, ipcMain, shell, safeStorage, desktopCapturer, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const Store = require('./store');
@@ -1091,7 +1119,31 @@ ipcMain.handle('buscar-pedidos', async (event, filtros = {}) => {
     if (filtros.status) {
       filters.push({ column: 'status', op: 'ilike', value: `%${String(filtros.status).trim()}%` });
     }
-    
+
+    // Busca livre: apesar do comentario antigo dizer "filtra no banco", o
+    // filtro nunca ia alem de desligar o filtro de data — a busca inteira
+    // acontecia so depois, no cliente, sobre os pedidos ja trazidos. Pra uma
+    // conta com muito historico isso faz pedidos antigos (fora do topo mais
+    // recente) nunca aparecerem numa busca por CPF/CNPJ, mesmo existindo.
+    // Filtra de verdade aqui, com OR entre as colunas pesquisaveis.
+    const termoBusca = String(filtros.busca || '').trim();
+    if (termoBusca) {
+      const escaparValorOr = (valor) => String(valor).replace(/[\\"]/g, '\\$&');
+      const termoEsc = escaparValorOr(termoBusca);
+      const colunasTexto = ['pedido', 'nome', 'razao_social', 'email', 'versao', 'certificado', 'comentarios'];
+      const condicoes = colunasTexto.map((coluna) => `${coluna}.ilike."%${termoEsc}%"`);
+
+      // CPF/CNPJ sao salvos so com digitos (ver unmaskCPF/unmaskCNPJ no
+      // renderer), entao busca pelos digitos do termo — funciona tanto
+      // digitando com pontuacao (111.444.777-35) quanto sem.
+      const termoDigitos = termoBusca.replace(/\D/g, '');
+      const termoDocumento = escaparValorOr(termoDigitos || termoBusca);
+      condicoes.push(`cpf.ilike."%${termoDocumento}%"`);
+      condicoes.push(`cnpj.ilike."%${termoDocumento}%"`);
+
+      filters.push({ op: 'or', value: condicoes.join(',') });
+    }
+
     // Filtra pelo usuario logado
     const emailUsuario = filtros.usuario || currentUser?.email;
     if (currentUser?.id) {
@@ -1159,14 +1211,50 @@ ipcMain.handle('buscar-pedidos', async (event, filtros = {}) => {
     }
 
     console.log('[buscar-pedidos] Total de pedidos encontrados:', data?.length);
-    // DEBUG: status distintos no banco
-    if (data?.length) {
-      const statusUnicos = [...new Set(data.map(p => p.status))];
-      console.log('[buscar-pedidos] Status distintos no banco:', JSON.stringify(statusUnicos));
-    }
     return { success: true, data };
   } catch (err) {
     console.error('Erro na busca de pedidos:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Exporta os pedidos da aba Consulta (ja filtrados no renderer) para uma planilha Excel
+ipcMain.handle('exportar-pedidos-excel', async (event, payload = {}) => {
+  try {
+    const linhas = Array.isArray(payload.linhas) ? payload.linhas : [];
+    if (linhas.length === 0) {
+      return { success: false, error: 'Nenhum pedido para exportar.' };
+    }
+
+    const janela = BrowserWindow.fromWebContents(event.sender);
+    const { canceled, filePath } = await dialog.showSaveDialog(janela, {
+      title: 'Exportar pedidos para Excel',
+      defaultPath: payload.nomeArquivoSugerido || 'pedidos.xlsx',
+      filters: [{ name: 'Planilha Excel', extensions: ['xlsx'] }]
+    });
+
+    if (canceled || !filePath) {
+      return { success: false, canceled: true };
+    }
+
+    const XLSX = require('xlsx');
+    const planilha = XLSX.utils.json_to_sheet(linhas);
+    const larguras = Object.keys(linhas[0]).map((chave) => {
+      const maiorValor = linhas.reduce((max, linha) => {
+        const tamanho = String(linha[chave] ?? '').length;
+        return tamanho > max ? tamanho : max;
+      }, chave.length);
+      return { wch: Math.min(Math.max(maiorValor + 2, 10), 60) };
+    });
+    planilha['!cols'] = larguras;
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, planilha, payload.sheetName || 'Pedidos');
+    XLSX.writeFile(workbook, filePath);
+
+    return { success: true, path: filePath };
+  } catch (err) {
+    console.error('Erro ao exportar pedidos para Excel:', err);
     return { success: false, error: err.message };
   }
 });

@@ -3562,6 +3562,7 @@ async function carregarConfiguracoes() {
     setField('config-cod-rev', config.cod_rev || '');
     setField('config-email', config.email || '');
     setField('config-senha-email', config.senha_email || '');
+    setField('config-telefone-agente', config.telefone_agente || '');
     setField('config-pasta', config.pasta_principal || '');
     setField('config-modo', config.modo_pasta || 'PEDIDO');
     setField('config-sac', config.sac_cliente || '11 4003 5598 ou 0800 838 051');
@@ -3615,6 +3616,7 @@ if (salvarConfigBtn) {
       cod_rev: document.getElementById('config-cod-rev')?.value,
       email: document.getElementById('config-email')?.value,
       senha_email: document.getElementById('config-senha-email')?.value,
+      telefone_agente: document.getElementById('config-telefone-agente')?.value,
       pasta_principal: document.getElementById('config-pasta')?.value,
       modo_pasta: document.getElementById('config-modo')?.value,
       sac_cliente: document.getElementById('config-sac')?.value,
@@ -3698,6 +3700,10 @@ if (configTab) {
 
 // Dados e configurações da linha do tempo
 let pedidosData = [];
+// Registros completos (todas as colunas do Supabase) por trás do pedidosData
+// exibido na tabela — usado para a exportação em Excel, que precisa de campos
+// (email, CPF, CNPJ, etc.) que a tabela não mostra.
+let pedidosDataCompleto = [];
 let timelineRange = { inicio: 6, fim: 24 }; // Padrão 06:00 - 00:00
 let currentDateRange = { dataDe: null, dataAte: null }; // Range de datas atual
 let certificadosLookup = new Map();
@@ -4008,52 +4014,6 @@ function atualizarHeaderTimeline() {
     if (timelineDateSpan) {
       timelineDateSpan.textContent = dataSelecionada.toLocaleDateString('pt-BR');
     }
-  }
-}
-
-// Carrega pedidos do servidor
-async function carregarPedidosDoServidor() {
-  const hoje = obterDataHojeLocalISO();
-  const dataDe = currentDateRange.dataDe || hoje;
-  const dataAte = currentDateRange.dataAte || hoje;
-  
-  try {
-    const resultado = await window.electronAPI.buscarPedidos({
-      dataDe,
-      dataAte,
-      usuario: currentUser?.email || undefined
-    });
-    
-    if (resultado.success && resultado.data && resultado.data.length > 0) {
-      const dadosRecentes = deduplicarPedidosMaisRecentes(resultado.data);
-      // Processar dados do servidor (colunas conforme tabela Supabase)
-      pedidosData = dadosRecentes.map(p => ({
-        num_pedido: p.pedido || p.id,
-        hora: p.hora || '00:00',
-        nome: p.nome || 'N/A',
-        status: (p.status || 'digitacao').toLowerCase(),
-        versao: p.versao || p.certificado || '-',
-        data: formatarDataISO(p.data),
-        comissao: p.comissao ?? p.COMISSAO ?? p.valor_comissao ?? p['COMISSAO'] ?? 0,
-        preco: p.preco ?? p.PRECO ?? p['PRECO'] ?? 0,
-        preco_certificado: p.preco_certificado ?? p.precoCertificado ?? p.PRECO_CERTIFICADO ?? p['PRECO CERTIFICADO'] ?? 0,
-        venda: p.venda ?? p.VENDA ?? ''
-      }));
-    } else {
-      pedidosData = [];
-    }
-
-    calcularRangeDinamico();
-    renderizarTimeline();
-    renderizarTabela(pedidosData);
-    atualizarRelatorioConsulta(pedidosData);
-  } catch (error) {
-    console.error('Erro ao carregar pedidos do servidor:', error);
-    pedidosData = [];
-    calcularRangeDinamico();
-    renderizarTimeline();
-    renderizarTabela(pedidosData);
-    atualizarRelatorioConsulta(pedidosData);
   }
 }
 
@@ -4831,17 +4791,25 @@ function renderizarTabela(dados) {
   const tbody = document.getElementById('consulta-table-body');
   const tableWrapper = document.querySelector('#consulta .consulta-table-wrapper');
   if (!tbody || !tableWrapper) return;
-  
+
+  const total = Array.isArray(dados) ? dados.length : 0;
+  const footer = document.getElementById('consulta-resultado-count');
+  if (footer) {
+    footer.textContent = total === 0
+      ? 'Nenhum pedido encontrado'
+      : `${total} pedido${total === 1 ? '' : 's'} encontrado${total === 1 ? '' : 's'}`;
+  }
+
   // Remove existing empty state if any
   const existingEmpty = tableWrapper.querySelector('.empty-state-box');
   if (existingEmpty) existingEmpty.remove();
-  
+
   const table = tableWrapper.querySelector('table');
   if (table) table.style.display = '';
   tableWrapper.classList.remove('is-empty');
-  
+
   tbody.innerHTML = '';
-  
+
   if (!dados || dados.length === 0) {
     tableWrapper.classList.add('is-empty');
     if (table) table.style.display = 'none';
@@ -4911,10 +4879,10 @@ function getStatusIcon(status) {
   </span>`;
 }
 
-// Buscar pedidos com filtros
-const btnConsultaBuscar = document.getElementById('btn-consulta-buscar');
-if (btnConsultaBuscar) {
-  btnConsultaBuscar.addEventListener('click', async () => {
+// Busca pedidos com os filtros atuais da aba Consulta. Nao ha botao de
+// buscar: isso roda sempre que a aba abre e sempre que qualquer filtro muda
+// (texto, datas, status, tipo, atendimento, venda).
+async function executarBuscaConsulta() {
     const dataDe = document.getElementById('consulta-data-de')?.value;
     const dataAte = document.getElementById('consulta-data-ate')?.value;
     const statusFiltro = document.getElementById('consulta-status')?.value?.trim();
@@ -5002,6 +4970,7 @@ if (btnConsultaBuscar) {
           });
         }
 
+        pedidosDataCompleto = dadosFiltrados;
         pedidosData = dadosFiltrados.map(p => ({
           num_pedido: p.pedido || p.id,
           hora: p.hora || '00:00',
@@ -5017,6 +4986,7 @@ if (btnConsultaBuscar) {
         }));
       } else {
         pedidosData = [];
+        pedidosDataCompleto = [];
       }
       
       calcularRangeDinamico();
@@ -5026,6 +4996,88 @@ if (btnConsultaBuscar) {
     } catch (error) {
       console.error('Erro ao buscar pedidos:', error);
       atualizarRelatorioConsulta([]);
+    }
+}
+
+// Exporta os pedidos atualmente listados na Consulta para uma planilha Excel
+const btnConsultaExportar = document.getElementById('btn-consulta-exportar');
+if (btnConsultaExportar) {
+  btnConsultaExportar.addEventListener('click', async () => {
+    if (!pedidosDataCompleto || pedidosDataCompleto.length === 0) {
+      if (window.toastNotifier) {
+        window.toastNotifier.warning('Nenhum pedido para exportar. Ajuste os filtros da busca.');
+      }
+      return;
+    }
+
+    btnConsultaExportar.disabled = true;
+    try {
+      const linhas = pedidosDataCompleto.map(p => ({
+        'Pedido': p.pedido || p.id || '',
+        'Status': getStatusLabel(p.status),
+        'Data': formatarDataISO(p.data),
+        'Hora': p.hora || '',
+        'Nome': p.nome || '',
+        'E-mail': p.email || '',
+        'Telefone': p.telefone || '',
+        'Nascimento': p.nascimento || '',
+        'Mãe': p.mae || '',
+        'CPF': p.cpf || '',
+        'RG': p.rg || '',
+        'Órgão RG': p.orgao_rg || '',
+        'CNH': p.cnh || '',
+        'Código Seg. CNH': p.codigo_de_seg_cnh || '',
+        'CNPJ': p.cnpj || '',
+        'Razão Social': p.razao_social || '',
+        'Nome Fantasia': p.nome_fantasia || '',
+        'Situação Cadastral': p.situacao_cadastral || '',
+        'Data Situação Cadastral': p.data_situacao_cadastral || '',
+        'Data Abertura': p.data_abertura || '',
+        'Capital Social': p.capital_social || '',
+        'CEP': p.cep || '',
+        'Município': p.municipio || '',
+        'UF': p.uf || '',
+        'Bairro': p.bairro || '',
+        'Logradouro': p.logradouro || '',
+        'Complemento': p.complemento || '',
+        'Junta': p.junta || '',
+        'Diretório': p.diretorio || '',
+        'Certificado': p.versao || p.certificado || '',
+        'Tipo': p.tipo || '',
+        'Atendimento': p.atendimento || p.modalidade || '',
+        'Venda': ehVendaSim(p.venda ?? p.VENDA) ? 'Sim' : 'Não',
+        'Preço Certificado': p.preco_certificado ?? p.precoCertificado ?? p.PRECO_CERTIFICADO ?? 0,
+        'Comissão': p.comissao ?? p.COMISSAO ?? p.valor_comissao ?? 0,
+        'Pasta': p.pasta || '',
+        'Comentários': p.comentarios || ''
+      }));
+
+      const hoje = new Date();
+      const carimbo = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+      const resultado = await window.electronAPI.exportarPedidosExcel({
+        linhas,
+        sheetName: 'Pedidos',
+        nomeArquivoSugerido: `pedidos-${carimbo}.xlsx`
+      });
+
+      if (resultado?.canceled) {
+        return;
+      }
+
+      if (resultado?.success) {
+        if (window.toastNotifier) {
+          window.toastNotifier.success(`Planilha exportada com sucesso (${linhas.length} pedido${linhas.length === 1 ? '' : 's'}).`);
+        }
+      } else if (window.toastNotifier) {
+        window.toastNotifier.error(`Não foi possível exportar: ${resultado?.error || 'erro desconhecido'}`);
+      }
+    } catch (error) {
+      console.error('Erro ao exportar pedidos para Excel:', error);
+      if (window.toastNotifier) {
+        window.toastNotifier.error('Erro ao exportar pedidos para Excel.');
+      }
+    } finally {
+      btnConsultaExportar.disabled = false;
     }
   });
 }
@@ -5037,13 +5089,13 @@ if (inputBuscaConsulta) {
   inputBuscaConsulta.addEventListener('input', () => {
     clearTimeout(debounceTimeout);
     debounceTimeout = setTimeout(() => {
-      btnConsultaBuscar?.click();
+      executarBuscaConsulta();
     }, 250);
   });
   inputBuscaConsulta.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       clearTimeout(debounceTimeout);
-      btnConsultaBuscar?.click();
+      executarBuscaConsulta();
     }
   });
 }
@@ -5053,7 +5105,24 @@ if (inputBuscaConsulta) {
   const el = document.getElementById(id);
   if (el) {
     el.addEventListener('change', () => {
-      btnConsultaBuscar?.click();
+      executarBuscaConsulta();
+    });
+  }
+});
+
+// Atualização automática ao trocar as datas (digitação, navegação por
+// teclado ou seleção no calendário — o calendário proprio dispara 'change'
+// no input depois de escolher o dia).
+['consulta-data-de', 'consulta-data-ate'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('change', () => {
+      if (id === 'consulta-data-de') {
+        currentDateRange.dataDe = el.value;
+      } else {
+        currentDateRange.dataAte = el.value;
+      }
+      executarBuscaConsulta();
     });
   }
 });
@@ -5074,7 +5143,7 @@ if (btnConsultaLimpar) {
     if (selectAtendimento) selectAtendimento.value = '';
     if (selectVenda) selectVenda.value = '';
 
-    btnConsultaBuscar?.click();
+    executarBuscaConsulta();
   });
 }
 
@@ -5088,7 +5157,7 @@ if (btnConsultaHoje) {
     if (dataDeInput) dataDeInput.value = hoje;
     if (dataAteInput) dataAteInput.value = hoje;
     currentDateRange = { dataDe: hoje, dataAte: hoje };
-    btnConsultaBuscar?.click();
+    executarBuscaConsulta();
   });
 }
 
@@ -5096,27 +5165,26 @@ if (btnConsultaHoje) {
 function ajustarDiasConsulta(inputId, delta) {
   const input = document.getElementById(inputId);
   if (!input) return;
-  
+
   const valorAtual = input.value || obterDataHojeLocalISO();
   const [ano, mes, dia] = valorAtual.split('-').map(Number);
   const dataObj = new Date(ano, mes - 1, dia);
-  
+
   dataObj.setDate(dataObj.getDate() + delta);
-  
+
   const novoAno = dataObj.getFullYear();
   const novoMes = String(dataObj.getMonth() + 1).padStart(2, '0');
   const novoDia = String(dataObj.getDate()).padStart(2, '0');
-  
+
   input.value = `${novoAno}-${novoMes}-${novoDia}`;
-  
+
   if (inputId === 'consulta-data-de') {
     currentDateRange.dataDe = input.value;
   } else if (inputId === 'consulta-data-ate') {
     currentDateRange.dataAte = input.value;
   }
-  
-  const btnConsultaBuscar = document.getElementById('btn-consulta-buscar');
-  btnConsultaBuscar?.click();
+
+  executarBuscaConsulta();
 }
 
 const dePrevBtn = document.getElementById('consulta-data-de-prev');
@@ -5129,16 +5197,20 @@ if (deNextBtn) deNextBtn.addEventListener('click', () => ajustarDiasConsulta('co
 if (atePrevBtn) atePrevBtn.addEventListener('click', () => ajustarDiasConsulta('consulta-data-ate', -1));
 if (ateNextBtn) ateNextBtn.addEventListener('click', () => ajustarDiasConsulta('consulta-data-ate', 1));
 
-// Inicializa a aba Consulta ao clicar
+// Inicializa a aba Consulta ao clicar. Na primeira vez, define o range de
+// datas padrao (hoje) antes de buscar; nas vezes seguintes so refaz a busca
+// com os filtros atuais — sem isso, voltar pra aba depois de editar um
+// pedido em Dados Pedido mostrava a tabela desatualizada (dados so em
+// memoria da ultima busca).
 const consultaTab = document.querySelector('[data-tab="consulta"]');
 let consultaTabJaInicializada = false;
 if (consultaTab) {
   consultaTab.addEventListener('click', () => {
     if (!consultaTabJaInicializada) {
       initConsultaFilters();
-      carregarPedidosDoServidor();
       consultaTabJaInicializada = true;
     }
+    executarBuscaConsulta();
   });
 }
 

@@ -603,11 +603,20 @@ button,
 }
 
 #consulta .consulta-filters {
+  /* Esta secao usa campos maiores que o resto do app (mais folgados para
+     leitura/clique) — sobrescreve os tokens de densidade global so aqui,
+     via custom properties, para nao afetar as outras abas que os usam. */
+  --ui-field-height: 34px;
+  --ui-radius-xs: 9px;
+  --ui-font-sm: 13px;
+  --ui-font-label: 10.5px;
+  --ui-gap-2: 12px;
+
   display: grid !important;
   grid-template-columns: minmax(320px, 1.2fr) minmax(280px, 1fr) !important;
-  column-gap: 16px !important;
+  column-gap: 18px !important;
   row-gap: var(--ui-gap-2) !important;
-  padding: 10px 14px !important;
+  padding: 14px 16px !important;
   margin-bottom: var(--ui-gap-3) !important;
   border-radius: var(--ui-radius-lg, 12px) !important;
 }
@@ -616,7 +625,7 @@ button,
   display: flex !important;
   flex-direction: column !important;
   justify-content: space-between !important;
-  gap: 8px !important;
+  gap: 12px !important;
   min-width: 0 !important;
 }
 
@@ -670,7 +679,7 @@ button,
 #consulta .filter-grid {
   display: grid !important;
   grid-template-columns: 1fr 1fr !important;
-  gap: 8px 12px !important;
+  gap: 12px 14px !important;
   width: 100% !important;
 }
 
@@ -767,21 +776,22 @@ button,
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
-  padding: 0 22px 0 4px !important;
+  padding: 0 30px 0 6px !important;
   text-align: center !important;
   margin: 0 !important;
   max-width: none !important;
   width: 100% !important;
   min-width: 0 !important;
   height: 100% !important;
+  font-weight: 500 !important;
 }
 
 #consulta .btn-date-nav {
   background: transparent !important;
   border: none !important;
   color: var(--ui-text-muted, #a9a9b2) !important;
-  width: 22px !important;
-  min-width: 22px !important;
+  width: 28px !important;
+  min-width: 28px !important;
   height: 100% !important;
   display: flex !important;
   align-items: center !important;
@@ -794,10 +804,12 @@ button,
 
 #consulta .btn-date-nav:first-child {
   border-radius: var(--ui-radius-xs) 0 0 var(--ui-radius-xs) !important;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.07) !important;
 }
 
 #consulta .btn-date-nav:last-child {
   border-radius: 0 var(--ui-radius-xs) var(--ui-radius-xs) 0 !important;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.07) !important;
 }
 
 #consulta .btn-date-nav:hover {
@@ -813,7 +825,15 @@ button,
   flex: 1 !important;
   min-height: 0 !important;
   overflow-y: auto !important;
-  padding-top: 0 !important;
+  padding: 0 6px 6px !important;
+}
+
+#consulta .consulta-table-footer {
+  flex: 0 0 auto !important;
+  padding: 8px 4px 0 !important;
+  font-size: var(--ui-font-label, 10px) !important;
+  color: var(--ui-text-muted, #8e8e93) !important;
+  text-align: right !important;
 }
 
 #consulta .consulta-table {
@@ -831,6 +851,8 @@ button,
 #consulta .consulta-table th {
   font-size: var(--ui-font-xs) !important;
   text-align: center !important;
+  border-bottom: none !important;
+  border-right: none !important;
 }
 
 #consulta .consulta-table th:last-child,
@@ -2183,7 +2205,10 @@ button,
   border: none !important;
   padding: 0 !important;
   box-shadow: none !important;
-  height: auto !important;
+  /* Estica ate a base da coluna (mesma altura da coluna de filtros ao
+     lado), pra o total liquido no rodape do relatorio poder se ancorar
+     na base e alinhar com a fileira de botoes. */
+  height: 100% !important;
   min-height: 0 !important;
 }
 
@@ -2198,6 +2223,8 @@ button,
   padding: 12px 14px;
   box-shadow: none !important;
   width: 100%;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .relatorio-group {
@@ -2303,7 +2330,10 @@ button,
   border: none !important;
   border-radius: var(--ui-radius-md) !important;
   padding: 10px 12px !important;
-  margin-top: 2px !important;
+  /* auto empurra este bloco pra base do card (ver .relatorio-custom-card,
+     que agora estica ate a base da coluna) — alinha com a fileira de
+     botoes de filtro ao lado. */
+  margin-top: auto !important;
   box-shadow: none !important;
 }
 

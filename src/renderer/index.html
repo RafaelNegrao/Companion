@@ -400,10 +400,14 @@
                 </div>
               </div>
               <div class="filter-actions">
-                <button class="btn-filter-action" id="btn-consulta-hoje" type="button">HOJE</button>
-                <button class="btn-filter-action secondary" id="btn-consulta-limpar" type="button" title="Limpar todos os filtros">LIMPAR</button>
-                <button class="btn-search" id="btn-consulta-buscar" type="button" aria-label="Buscar pedidos" title="Buscar pedidos">
-                  <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></svg>
+                <button class="btn-icon-action" id="btn-consulta-hoje" type="button" aria-label="Hoje" title="Ir para hoje">
+                  <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"/></svg>
+                </button>
+                <button class="btn-icon-action" id="btn-consulta-limpar" type="button" aria-label="Limpar filtros" title="Limpar filtros">
+                  <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M165.66,101.66,139.31,128l26.35,26.34a8,8,0,0,1-11.32,11.32L128,139.31l-26.34,26.35a8,8,0,0,1-11.32-11.32L116.69,128,90.34,101.66a8,8,0,0,1,11.32-11.32L128,116.69l26.34-26.35a8,8,0,0,1,11.32,11.32ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>
+                </button>
+                <button class="btn-icon-action success" id="btn-consulta-exportar" type="button" aria-label="Exportar para Excel" title="Exportar para Excel">
+                  <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M200,24H72A16,16,0,0,0,56,40V64H40A16,16,0,0,0,24,80v96a16,16,0,0,0,16,16H56v24a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V40A16,16,0,0,0,200,24Zm-40,80h40v48H160Zm40-16H160V80a16,16,0,0,0-16-16V40h56ZM72,40h56V64H72ZM40,80H144v79.83c0,.06,0,.11,0,.17s0,.11,0,.17V176H40ZM72,192h56v24H72Zm72,24V192a16,16,0,0,0,16-16v-8h40v48ZM65.85,146.88,81.59,128,65.85,109.12a8,8,0,0,1,12.3-10.24L92,115.5l13.85-16.62a8,8,0,1,1,12.3,10.24L102.41,128l15.74,18.88a8,8,0,0,1-12.3,10.24L92,140.5,78.15,157.12a8,8,0,0,1-12.3-10.24Z"/></svg>
                 </button>
               </div>
             </div>
@@ -414,7 +418,7 @@
               </div>
             </div>
           </div>
-          
+
           <div class="consulta-table-wrapper">
             <table class="consulta-table">
               <thead>
@@ -432,6 +436,7 @@
               </tbody>
             </table>
           </div>
+          <div class="consulta-table-footer" id="consulta-resultado-count"></div>
         </div>
       </div>
 
@@ -600,6 +605,10 @@
               <label for="config-senha-email">Senha email</label>
               <input type="password" class="settings-value" id="config-senha-email">
             </div>
+            <div class="settings-row">
+              <label for="config-telefone-agente">Telefone</label>
+              <input type="text" class="settings-value" id="config-telefone-agente" placeholder="11 98888-7766">
+            </div>
           </div>
         </div>
 
@@ -639,7 +648,7 @@
               <input type="text" class="settings-value" id="config-sac" value="11 4003 5598 ou 0800 838 051">
             </div>
             <div class="settings-row">
-              <label for="config-tela-cheia">Telefone</label>
+              <label for="config-tela-cheia">Telefone Certisign</label>
               <input type="text" class="settings-value" id="config-tela-cheia" value="4003 5596">
             </div>
           </div>

@@ -1,6 +1,6 @@
 {
   "name": "companion-app",
-  "version": "1.0.85",
+  "version": "1.0.86",
   "description": "App lateral que abre ao passar o mouse",
   "main": "src/main/main.js",
   "scripts": {
@@ -48,6 +48,7 @@
     "electron-builder": "^26.8.1"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.89.0"
+    "@supabase/supabase-js": "^2.89.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }
 }
