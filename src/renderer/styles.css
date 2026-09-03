@@ -497,8 +497,8 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: 16px;
+  padding: 12px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -507,19 +507,21 @@ button {
 }
 
 #configuracoes .settings-row > label {
-  font-size: 12.5px;
+  font-size: 13px;
   color: #d1d1d6;
-  flex-shrink: 0;
+  flex: 0 0 190px;
 }
 
 #configuracoes .settings-value {
   background: rgba(60, 60, 67, 0.6);
   border: 2px solid transparent;
   color: #e5e5ea;
-  padding: 6px 10px;
-  border-radius: 7px;
-  font-size: 12.5px;
-  width: 190px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
   text-align: right;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -548,9 +550,6 @@ select.settings-value {
 
 #configuracoes .settings-row-wide .settings-value,
 #configuracoes .settings-value-inline .settings-value {
-  flex: 1 1 0;
-  width: 100%;
-  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2179,45 +2178,41 @@ select.settings-value {
   margin: 6px 0;
 }
 
-#consulta .btn-search {
-  background: #0071e3;
+#consulta .filter-actions {
+  gap: 8px !important;
+  margin-top: 2px !important;
+}
+
+#consulta .btn-icon-action {
+  background: rgba(255, 255, 255, 0.08);
   border: none;
-  color: white;
-  width: 36px;
-  height: 36px;
-  border-radius: 16px;
+  color: #e5e5ea;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex: 0 0 auto;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-#consulta .btn-search:hover {
-  background: #0062cc;
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 113, 227, 0.4);
-}
-
-#consulta .btn-filter-action {
-  background: rgba(255, 255, 255, 0.08);
-  border: none;
-  color: #e5e5ea;
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 12px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-#consulta .btn-filter-action:hover {
+#consulta .btn-icon-action:hover {
   background: rgba(255, 255, 255, 0.14);
   transform: translateY(-1px);
+}
+
+#consulta .btn-icon-action.success {
+  background: #34c759;
+  color: white;
+}
+
+#consulta .btn-icon-action.success:hover {
+  background: #28a745;
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(52, 199, 89, 0.4);
 }
 
 /* Tabela de Consulta */
@@ -4497,10 +4492,7 @@ select.settings-value {
 }
 
 #pedido .pf6-sep {
-  width: 1px;
-  height: 30px;
-  background: rgba(255, 255, 255, 0.09);
-  flex-shrink: 0;
+  display: none;
 }
 
 /* ----------------------------------------------------------------

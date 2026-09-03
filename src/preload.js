@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   authRecuperarSenha: (email) => ipcRenderer.invoke('auth-recuperar-senha', { email }),
   authConfirmarRecuperacao: (data) => ipcRenderer.invoke('auth-confirmar-recuperacao', data),
   buscarPedidos: (filtros) => ipcRenderer.invoke('buscar-pedidos', filtros),
+  exportarPedidosExcel: (payload) => ipcRenderer.invoke('exportar-pedidos-excel', payload),
   contarStatusPedidos: () => ipcRenderer.invoke('contar-status-pedidos'),
   getCurrentUser: () => ipcRenderer.invoke('get-current-user'),
   verificarPastaPedido: (data) => ipcRenderer.invoke('verificar-pasta-pedido', data),

@@ -30,6 +30,11 @@ create table if not exists public.configuracoes (
   modo_pasta text,
   sac_cliente text,
   tela_cheia text,
+  -- Apesar do nome (sobra de um campo antigo de "tela cheia"), essa coluna
+  -- hoje guarda o telefone da Certisign mostrado pro cliente (ver
+  -- config-tela-cheia em renderer.js). Nao renomeada para nao quebrar linhas
+  -- ja gravadas — so documentando aqui pra nao confundir de novo.
+  telefone_agente text,
   porcentagem_validacao numeric,
   porcentagem_venda numeric,
   desconto_total numeric,
@@ -37,6 +42,11 @@ create table if not exists public.configuracoes (
   desconto_validacao numeric,
   created_at timestamptz not null default now()
 );
+
+-- Adiciona a coluna em bancos que ja existiam antes dela (create table if
+-- not exists acima nao altera uma tabela ja criada).
+alter table public.configuracoes
+  add column if not exists telefone_agente text;
 
 -- ==========================================================
 -- CERTIFICADOS (catalogo compartilhado)
