@@ -446,6 +446,9 @@ function traduzirErroAuth(mensagem) {
   if (texto.includes('token') && (texto.includes('expired') || texto.includes('invalid'))) {
     return 'Código inválido ou expirado - peça um novo.';
   }
+  if (texto.includes('email rate limit exceeded')) {
+    return 'Limite de envio de e-mails do Supabase atingido. Confira se o SMTP customizado está ativo (Authentication > Emails > SMTP Settings) ou aguarde alguns minutos.';
+  }
   return mensagem;
 }
 
@@ -545,6 +548,16 @@ ipcMain.handle('auth-register', async (event, { nome, email, senha }) => {
 
     if (error || !data?.user) {
       return { success: false, error: traduzirErroAuth(error?.message || 'Falha ao cadastrar usuário') };
+    }
+
+    // Com "Confirm email" ligado, o Supabase evita expor quais e-mails ja
+    // existem: se o e-mail informado ja tem conta, signUp() nao retorna erro
+    // nenhum, so devolve um "usuario" com identities vazio (nao cria nada de
+    // fato). E o unico jeito documentado de detectar isso pelo lado do
+    // cliente — sem checar aqui, o app diria "conta criada" para um e-mail
+    // que ja existia, com outro nome, sem cadastrar nada de verdade.
+    if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      return { success: false, error: 'Já existe uma conta com esse e-mail.' };
     }
 
     // A linha de perfil em "usuarios" e criada automaticamente por um trigger

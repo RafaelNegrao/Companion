@@ -449,7 +449,7 @@ button {
 }
 
 #configuracoes .section:not(.config-bottom-bar) .form-field label {
-  font-size: 9px !important;
+  font-size: var(--ui-font-label, 9px) !important;
 }
 
 #configuracoes .section:not(.config-bottom-bar) .input-dark,
@@ -457,7 +457,7 @@ button {
   min-height: 30px;
   padding: 5px 8px;
   border-radius: 7px;
-  font-size: 12px;
+  font-size: var(--ui-font-field, 12px);
 }
 
 #configuracoes .section:not(.config-bottom-bar) .form-grid-2,
@@ -518,7 +518,7 @@ button {
   color: #e5e5ea;
   padding: 9px 12px;
   border-radius: 8px;
-  font-size: 13.5px;
+  font-size: var(--ui-font-field, 13.5px);
   flex: 1 1 0;
   width: 100%;
   min-width: 0;
@@ -1313,7 +1313,7 @@ select.settings-value {
   color: #e5e5ea;
   padding: 8px 12px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: var(--ui-font-field, 13px);
   outline: none;
   width: 100%;
   font-family: inherit;
@@ -1333,7 +1333,7 @@ select.settings-value {
   color: #e5e5ea;
   padding: 8px 12px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: var(--ui-font-field, 13px);
   outline: none;
   flex: 1;
   font-family: inherit;
@@ -1386,7 +1386,7 @@ select.settings-value {
   padding: 8px 10px;
   border-radius: 16px;
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--ui-font-field, 13px);
   outline: none;
   width: 100%;
   font-family: inherit;
@@ -1533,7 +1533,7 @@ select.settings-value {
   color: #e5e5ea;
   padding: 6px 10px;
   border-radius:  8px;
-  font-size: 12px;
+  font-size: var(--ui-font-field, 12px);
   outline: none;
   font-family: inherit;
   cursor: pointer;
@@ -1558,7 +1558,7 @@ select.settings-value {
   color: #e5e5ea;
   padding: 6px 10px;
   border-radius:  8px;
-  font-size: 12px;
+  font-size: var(--ui-font-field, 12px);
   outline: none;
   width: 100%;
   font-family: inherit;
@@ -1662,7 +1662,7 @@ select.settings-value {
 }
 
 .input-icon.input-icon-embedded .icon.icon-embedded {
-  right: 8px;
+  right: 4px;
   width: 22px;
   height: 22px;
   border-radius: 6px;
@@ -1671,10 +1671,19 @@ select.settings-value {
   opacity: 1;
   pointer-events: auto;
   cursor: pointer;
+  color: #6e6e73;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.input-icon.input-icon-embedded .icon.icon-embedded:hover {
+  color: #f2f2f7;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .input-icon.input-icon-embedded .icon.icon-embedded svg {
-  fill: #a9a9b2;
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
 }
 
 .input-icon.input-icon-embedded input {
@@ -2091,7 +2100,7 @@ select.settings-value {
   padding: 10px 12px;
   border-radius: 14px;
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--ui-font-field, 12px);
   transition: all 0.15s ease;
 }
 
@@ -2230,7 +2239,7 @@ select.settings-value {
 #consulta .consulta-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: var(--ui-font-table, 11px);
 }
 
 #consulta .consulta-table thead {
@@ -2245,7 +2254,7 @@ select.settings-value {
   color: #8e8e93;
   font-weight: 600;
   text-transform: uppercase;
-  font-size: 10px;
+  font-size: var(--ui-font-table, 10px);
   padding: 10px 12px;
   text-align: left;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -3157,7 +3166,7 @@ select.settings-value {
 /* Smaller labels and inputs inside the compact area */
 .sub-tab-content .form-field label,
 .sub-tab-content .field-label {
-  font-size: 9px !important;
+  font-size: var(--ui-font-label, 9px) !important;
 }
 
 .sub-tab-content .input-dark,
@@ -3165,7 +3174,7 @@ select.settings-value {
 .sub-tab-content .input-small,
 .sub-tab-content .select-small,
 .sub-tab-content .input-highlight {
-  font-size: 12px !important;
+  font-size: var(--ui-font-field) !important;
   padding: 6px 8px !important;
   border-radius: 6px !important;
 }
@@ -4018,7 +4027,7 @@ select.settings-value {
 }
 
 #pedido .doc-section-title {
-  font-size: 9px !important;
+  font-size: 10px !important;
   padding-bottom: 5px !important;
   letter-spacing: 0.5px !important;
 }
@@ -4045,7 +4054,7 @@ select.settings-value {
 #pedido .select-dark {
   min-height: 24px !important;
   padding: 3px 6px !important;
-  font-size: 10px !important;
+  font-size: var(--ui-font-field) !important;
   border-radius: 5px !important;
 }
 
@@ -4054,14 +4063,14 @@ select.settings-value {
   padding-top: 10px !important;
   padding-bottom: 10px !important;
   line-height: 1.6 !important;
-  font-size: 13px !important;
+  font-size: var(--ui-font-field) !important;
 }
 
 #pedido .input-small,
 #pedido .select-small {
   min-height: 23px !important;
   padding: 3px 6px !important;
-  font-size: 10px !important;
+  font-size: var(--ui-font-field) !important;
   border-radius: 5px !important;
 }
 
@@ -4448,7 +4457,7 @@ select.settings-value {
 
 #pedido .pf6-hero-num label,
 #pedido .pf6-hero-meta label {
-  font-size: 9px;
+  font-size: var(--ui-font-label, 10px);
   color: #86868b;
   font-weight: 600;
   letter-spacing: 0.4px;
@@ -4456,7 +4465,7 @@ select.settings-value {
 }
 
 #pedido .pf6-num-in {
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 400;
   letter-spacing: -0.01em;
   height: 34px;
@@ -4541,7 +4550,7 @@ select.settings-value {
 }
 
 #pedido .pf6-list > label {
-  font-size: 11.5px;
+  font-size: var(--ui-font-label, 12.5px);
   color: #86868b;
   text-align: right;
   line-height: 1.2;
@@ -4687,7 +4696,7 @@ select.settings-value {
 }
 
 #pedido .pf-grid > label {
-  font-size: 11.5px;
+  font-size: var(--ui-font-label, 12.5px);
   color: #86868b;
   text-align: right;
   line-height: 1.2;
@@ -4718,7 +4727,7 @@ select.settings-value {
   border-radius: 7px;
   color: #f2f2f7;
   padding: 0 9px;
-  font-size: 12.5px;
+  font-size: var(--ui-font-field, 13.5px);
   font-family: inherit;
   outline: none;
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
@@ -5092,7 +5101,7 @@ select.settings-value {
   gap: 8px;
   width: 100%;
   text-align: left;
-  font-weight: 400;
+  font-weight: 400 !important;
   cursor: pointer;
 }
 

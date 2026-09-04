@@ -317,16 +317,6 @@
         <div class="consulta-top">
           <div class="consulta-filters">
             <div class="filter-left">
-              <!-- Barra de Pesquisa de Pedidos -->
-              <div class="filter-search-box">
-                <div class="input-icon input-icon-embedded filter-search-input-wrap">
-                  <input type="text" class="input-dark" id="consulta-busca" placeholder="Buscar por pedido, cliente, CPF, CNPJ ou certificado...">
-                  <span class="icon icon-embedded" aria-hidden="true">
-                    <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></svg>
-                  </span>
-                </div>
-              </div>
-
               <!-- Grid de Filtros -->
               <div class="filter-grid">
                 <div class="filter-field">
@@ -416,6 +406,16 @@
                 <label>RELATÓRIO:</label>
                 <div id="consulta-relatorio"></div>
               </div>
+            </div>
+          </div>
+
+          <!-- Barra de Pesquisa de Pedidos -->
+          <div class="filter-search-box">
+            <div class="input-icon input-icon-embedded filter-search-input-wrap">
+              <input type="text" class="input-dark" id="consulta-busca" placeholder="Buscar por pedido, cliente, CPF, CNPJ ou certificado...">
+              <span class="icon icon-embedded" aria-hidden="true">
+                <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></svg>
+              </span>
             </div>
           </div>
 
@@ -585,206 +585,262 @@
 
       <div class="tab-content" id="configuracoes">
 
-        <!-- Grupo: Conta -->
-        <div class="settings-group">
-          <div class="settings-group-label">CONTA</div>
-          <div class="settings-list">
-            <div class="settings-row">
-              <label for="config-agente">Agente</label>
-              <input type="text" class="settings-value" id="config-agente">
-            </div>
-            <div class="settings-row">
-              <label for="config-cod-rev">Cod_Rev</label>
-              <input type="text" class="settings-value" id="config-cod-rev">
-            </div>
-            <div class="settings-row">
-              <label for="config-email">E-mail</label>
-              <input type="email" class="settings-value" id="config-email">
-            </div>
-            <div class="settings-row">
-              <label for="config-senha-email">Senha email</label>
-              <input type="password" class="settings-value" id="config-senha-email">
-            </div>
-            <div class="settings-row">
-              <label for="config-telefone-agente">Telefone</label>
-              <input type="text" class="settings-value" id="config-telefone-agente" placeholder="11 98888-7766">
-            </div>
-          </div>
+        <div class="config-layout">
+        <!-- Subabas de Configurações -->
+        <div class="config-subtabs">
+          <button class="config-subtab-btn active" data-subtab="config-sub-conta">Conta</button>
+          <button class="config-subtab-btn" data-subtab="config-sub-preferencias">Preferências</button>
+          <button class="config-subtab-btn" data-subtab="config-sub-financeiro">Financeiro</button>
+          <button class="config-subtab-btn" data-subtab="config-sub-usuarios">Novo usuário</button>
+          <button class="config-subtab-btn" data-subtab="config-sub-certificados">Certificados</button>
         </div>
 
-        <!-- Grupo: Pastas -->
-        <div class="settings-group">
-          <div class="settings-group-label">PASTAS</div>
-          <div class="settings-list">
-            <div class="settings-row settings-row-wide">
-              <label for="config-pasta">Diretório principal</label>
-              <div class="settings-value-inline">
-                <input type="text" class="settings-value" id="config-pasta" value="" readonly>
-                <span class="icon-btn" id="config-folder-btn" title="Abrir pasta do usuário" onclick="window.__openConfigUserFolder && window.__openConfigUserFolder(event)">
-                  <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M216,72H131.31L104,44.69A15.86,15.86,0,0,0,92.69,40H40A16,16,0,0,0,24,56V200.62A15.4,15.4,0,0,0,39.38,216H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72ZM40,56H92.69l16,16H40ZM216,200H40V88H216Z"/></svg>
-                </span>
+        <div class="config-subtab-panels">
+        <div class="config-subtab-content active" id="config-sub-conta">
+          <!-- Grupo: Dados de login -->
+          <div class="settings-group">
+            <div class="settings-group-label">DADOS DE LOGIN</div>
+            <div class="settings-list">
+              <div class="settings-row">
+                <label for="config-login-email">E-mail de login</label>
+                <input type="email" class="settings-value" id="config-login-email" readonly>
+              </div>
+              <div class="settings-row">
+                <label for="config-login-nome">Nome</label>
+                <input type="text" class="settings-value" id="config-login-nome" readonly>
+              </div>
+              <div class="settings-row">
+                <label for="config-login-privilegio">Perfil</label>
+                <input type="text" class="settings-value" id="config-login-privilegio" readonly>
               </div>
             </div>
-            <div class="settings-row settings-row-wide">
-              <label for="config-pasta-cliente">Pasta do pedido atual</label>
-              <input type="text" class="settings-value" id="config-pasta-cliente" placeholder="Nenhum pedido aberto" readonly>
-            </div>
-            <div class="settings-row">
-              <label for="config-modo">Modo</label>
-              <select class="settings-value" id="config-modo">
-                <option value="PEDIDO">PEDIDO</option>
-                <option value="PASTA">PASTA</option>
-              </select>
-            </div>
           </div>
-        </div>
 
-        <!-- Grupo: Atendimento -->
-        <div class="settings-group">
-          <div class="settings-group-label">ATENDIMENTO</div>
-          <div class="settings-list">
-            <div class="settings-row">
-              <label for="config-sac">SAC Cliente</label>
-              <input type="text" class="settings-value" id="config-sac" value="11 4003 5598 ou 0800 838 051">
-            </div>
-            <div class="settings-row">
-              <label for="config-tela-cheia">Telefone Certisign</label>
-              <input type="text" class="settings-value" id="config-tela-cheia" value="4003 5596">
-            </div>
-          </div>
-        </div>
-
-        <!-- Grupo: Financeiro -->
-        <div class="settings-group">
-          <div class="settings-group-label">FINANCEIRO</div>
-          <div class="settings-list">
-            <div class="settings-row">
-              <label for="config-porc-validacao">(%) Validação</label>
-              <input type="number" class="settings-value" id="config-porc-validacao" value="15">
-            </div>
-            <div class="settings-row">
-              <label for="config-porc-venda">(%) Venda</label>
-              <input type="number" class="settings-value" id="config-porc-venda" value="10">
-            </div>
-            <div class="settings-row">
-              <label for="config-desc-total">Desconto do total (%)</label>
-              <input type="number" class="settings-value" id="config-desc-total" value="20">
-            </div>
-            <div class="settings-row">
-              <label for="config-imp-renda">Imposto de renda (%)</label>
-              <input type="number" class="settings-value" id="config-imp-renda" value="15">
-            </div>
-            <div class="settings-row">
-              <label for="config-desc-validacao">Desconto por validação</label>
-              <input type="number" step="0.01" class="settings-value" id="config-desc-validacao" value="2.75">
-            </div>
-          </div>
-        </div>
-
-        <!-- Grupo: Aparência -->
-        <div class="settings-group">
-          <div class="settings-group-label">APARÊNCIA</div>
-          <div class="settings-list">
-            <div class="settings-row settings-row-stack">
-              <div class="settings-row-top">
-                <label for="config-window-translucency">Opacidade ao ficar ociosa</label>
-                <div class="config-opacity-value">
-                  <input type="number" id="config-window-translucency-number" min="10" max="100" step="1" value="100" aria-label="Opacidade da janela fixada">
-                  <span>%</span>
+          <!-- Grupo: Conta -->
+          <div class="settings-group">
+            <div class="settings-group-label">CONTA</div>
+            <div class="settings-list">
+              <div class="settings-row">
+                <label for="config-agente">Agente</label>
+                <input type="text" class="settings-value" id="config-agente">
+              </div>
+              <div class="settings-row">
+                <label for="config-cod-rev">Cod_Rev</label>
+                <input type="text" class="settings-value" id="config-cod-rev">
+              </div>
+              <div class="settings-row">
+                <label for="config-email">E-mail (Certisign)</label>
+                <input type="email" class="settings-value" id="config-email">
+              </div>
+              <div class="settings-row">
+                <label for="config-senha-email" title="Senha da caixa de e-mail acima — não é a senha de login do Companion">Senha do e-mail (não é login)</label>
+                <div class="settings-value-inline">
+                  <input type="password" class="settings-value" id="config-senha-email" autocomplete="off">
+                  <span class="icon-btn config-password-toggle" id="config-senha-email-toggle" title="Mostrar senha">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </span>
                 </div>
               </div>
-              <input type="range" class="config-opacity-range" id="config-window-translucency" min="10" max="100" step="1" value="100">
-            </div>
-            <div class="settings-row">
-              <label for="config-console-enabled">Console de desenvolvimento</label>
-              <label class="config-switch" for="config-console-enabled">
-                <input type="checkbox" id="config-console-enabled">
-                <span class="config-switch-track" aria-hidden="true"></span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <!-- Grupo: Certificados -->
-        <!-- Grupo: Usuários — criar conta saiu da tela de login e passou a ser
-             uma ação de quem já está autenticado. -->
-        <div class="settings-group" id="config-usuarios-section">
-          <div class="settings-group-label">USUÁRIOS</div>
-          <div class="settings-list">
-            <div class="settings-row settings-row-wide">
-              <label for="config-novo-usuario-nome">Nome completo</label>
-              <input type="text" class="settings-value" id="config-novo-usuario-nome" autocomplete="off" placeholder="Nome de quem vai usar">
-            </div>
-            <div class="settings-row settings-row-wide">
-              <label for="config-novo-usuario-email">E-mail</label>
-              <input type="email" class="settings-value" id="config-novo-usuario-email" autocomplete="off" placeholder="email@exemplo.com">
-            </div>
-            <div class="settings-row">
-              <label for="config-novo-usuario-senha">Senha</label>
-              <input type="password" class="settings-value" id="config-novo-usuario-senha" autocomplete="new-password" placeholder="Mín. 6 caracteres">
-            </div>
-            <div class="settings-row">
-              <label for="config-novo-usuario-senha2">Confirmar senha</label>
-              <input type="password" class="settings-value" id="config-novo-usuario-senha2" autocomplete="new-password" placeholder="Repita a senha">
-            </div>
-            <div class="config-cert-action-buttons">
-              <span id="config-novo-usuario-msg" class="config-usuario-msg"></span>
-              <button type="button" id="config-criar-usuario-btn" class="config-icon-btn config-save-btn" title="Criar conta para este usuário">
-                <svg width="16" height="16" aria-hidden="true" viewBox="0 0 256 256" fill="currentColor"><path d="M256,136a8,8,0,0,1-8,8H232v16a8,8,0,0,1-16,0V144H200a8,8,0,0,1,0-16h16V112a8,8,0,0,1,16,0v16h16A8,8,0,0,1,256,136Zm-57.87,58.85a8,8,0,0,1-12.26,10.3C165.75,181.19,138.09,168,108,168s-57.75,13.19-77.87,37.15a8,8,0,0,1-12.25-10.3c14.94-17.78,33.52-30.41,54.17-37.17a68,68,0,1,1,71.9,0C164.6,164.44,183.18,177.07,198.13,194.85ZM108,152a52,52,0,1,0-52-52A52.06,52.06,0,0,0,108,152Z"/></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="settings-group" id="config-cert-section">
-          <div class="settings-group-label">
-            <span>CERTIFICADOS</span>
-            <div class="config-cert-mode new" id="config-cert-mode">
-              <span class="config-cert-mode-text">NEW</span>
-            </div>
-          </div>
-          <div class="settings-list">
-            <div class="settings-row settings-row-wide">
-              <label for="config-cert-nome">Certificado</label>
-              <div class="config-cert-name-wrap settings-value-inline">
-                <input type="text" class="settings-value" id="config-cert-nome" autocomplete="off" placeholder="Selecione ou digite o nome do certificado">
-                <span class="config-cert-caret" aria-hidden="true">
-                  <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg>
-                </span>
-                <div id="config-cert-suggestions" class="config-cert-suggestions is-hidden"></div>
+              <div class="settings-row">
+                <label for="config-telefone-agente">Telefone</label>
+                <input type="text" class="settings-value" id="config-telefone-agente" placeholder="11 98888-7766">
               </div>
             </div>
-            <div class="settings-row settings-row-wide">
-              <label for="config-cert-link">Link</label>
-              <input type="text" class="settings-value" id="config-cert-link" placeholder="https://...">
+          </div>
+        </div>
+
+        <div class="config-subtab-content" id="config-sub-preferencias">
+          <!-- Grupo: Pastas -->
+          <div class="settings-group">
+            <div class="settings-group-label">PASTAS</div>
+            <div class="settings-list">
+              <div class="settings-row settings-row-wide">
+                <label for="config-pasta">Diretório principal</label>
+                <div class="settings-value-inline">
+                  <input type="text" class="settings-value" id="config-pasta" value="" readonly>
+                  <span class="icon-btn" id="config-folder-btn" title="Abrir pasta do usuário" onclick="window.__openConfigUserFolder && window.__openConfigUserFolder(event)">
+                    <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M216,72H131.31L104,44.69A15.86,15.86,0,0,0,92.69,40H40A16,16,0,0,0,24,56V200.62A15.4,15.4,0,0,0,39.38,216H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72ZM40,56H92.69l16,16H40ZM216,200H40V88H216Z"/></svg>
+                  </span>
+                </div>
+              </div>
+              <div class="settings-row settings-row-wide">
+                <label for="config-pasta-cliente">Pasta do pedido atual</label>
+                <input type="text" class="settings-value" id="config-pasta-cliente" placeholder="Nenhum pedido aberto" readonly>
+              </div>
+              <div class="settings-row">
+                <label for="config-modo">Modo</label>
+                <select class="settings-value" id="config-modo">
+                  <option value="PEDIDO">PEDIDO</option>
+                  <option value="PASTA">PASTA</option>
+                </select>
+              </div>
             </div>
-            <div class="settings-row">
-              <label for="config-cert-tipo">Tipo</label>
-              <select class="settings-value" id="config-cert-tipo">
-                <option value=""></option>
-                <option value="CPF">CPF</option>
-                <option value="CNPJ">CNPJ</option>
-              </select>
+          </div>
+
+          <!-- Grupo: Atendimento -->
+          <div class="settings-group">
+            <div class="settings-group-label">ATENDIMENTO</div>
+            <div class="settings-list">
+              <div class="settings-row">
+                <label for="config-sac">SAC Cliente</label>
+                <input type="text" class="settings-value" id="config-sac" value="11 4003 5598 ou 0800 838 051">
+              </div>
+              <div class="settings-row">
+                <label for="config-tela-cheia">Telefone Certisign</label>
+                <input type="text" class="settings-value" id="config-tela-cheia" value="4003 5596">
+              </div>
             </div>
-            <div class="settings-row">
-              <label for="config-cert-preco">Preço</label>
-              <input type="text" class="settings-value" id="config-cert-preco" placeholder="0,00">
-            </div>
-            <div class="config-cert-action-buttons">
-              <button type="button" id="config-cert-add-btn" class="config-icon-btn config-save-btn" title="Adicionar certificado">
-                <svg width="16" height="16" aria-hidden="true" viewBox="0 0 256 256" fill="currentColor"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg>
-              </button>
-              <button type="button" id="config-cert-clear-btn" class="config-icon-btn config-logout-btn" title="Limpar campos">
-                <svg width="14" height="14" aria-hidden="true" viewBox="0 0 256 256" fill="currentColor"><path d="M225,80.4,183.6,39a24,24,0,0,0-33.94,0L31,157.66a24,24,0,0,0,0,33.94l30.06,30.06A8,8,0,0,0,66.74,224H216a8,8,0,0,0,0-16h-84.7L225,114.34A24,24,0,0,0,225,80.4ZM108.68,208H70.05L42.33,180.28a8,8,0,0,1,0-11.31L96,115.31,148.69,168Zm105-105L160,156.69,107.31,104,161,50.34a8,8,0,0,1,11.32,0l41.38,41.38a8,8,0,0,1,0,11.31Z"/></svg>
-              </button>
-              <button type="button" id="config-cert-delete-btn" class="config-icon-btn config-logout-btn config-cert-delete-btn is-hidden" title="Excluir certificado">
-                <svg width="14" height="14" aria-hidden="true" viewBox="0 0 256 256" fill="currentColor"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg>
-              </button>
+          </div>
+
+          <!-- Grupo: Aparência -->
+          <div class="settings-group">
+            <div class="settings-group-label">APARÊNCIA</div>
+            <div class="settings-list">
+              <div class="settings-row settings-row-stack">
+                <div class="settings-row-top">
+                  <label for="config-window-translucency">Opacidade ao ficar ociosa</label>
+                  <div class="config-opacity-value">
+                    <input type="number" id="config-window-translucency-number" min="10" max="100" step="1" value="100" aria-label="Opacidade da janela fixada">
+                    <span>%</span>
+                  </div>
+                </div>
+                <input type="range" class="config-opacity-range" id="config-window-translucency" min="10" max="100" step="1" value="100">
+              </div>
+              <div class="settings-row">
+                <label for="config-console-enabled">Console de desenvolvimento</label>
+                <label class="config-switch" for="config-console-enabled">
+                  <input type="checkbox" id="config-console-enabled">
+                  <span class="config-switch-track" aria-hidden="true"></span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="section" style="padding: 8px 20px;">
+        <div class="config-subtab-content" id="config-sub-financeiro">
+          <!-- Grupo: Financeiro -->
+          <div class="settings-group">
+            <div class="settings-group-label">FINANCEIRO</div>
+            <div class="settings-list">
+              <div class="settings-row">
+                <label for="config-porc-validacao">(%) Validação</label>
+                <input type="number" class="settings-value" id="config-porc-validacao" value="15">
+              </div>
+              <div class="settings-row">
+                <label for="config-porc-venda">(%) Venda</label>
+                <input type="number" class="settings-value" id="config-porc-venda" value="10">
+              </div>
+              <div class="settings-row">
+                <label for="config-desc-total">Desconto do total (%)</label>
+                <input type="number" class="settings-value" id="config-desc-total" value="20">
+              </div>
+              <div class="settings-row">
+                <label for="config-imp-renda">Imposto de renda (%)</label>
+                <input type="number" class="settings-value" id="config-imp-renda" value="15">
+              </div>
+              <div class="settings-row">
+                <label for="config-desc-validacao">Desconto por validação</label>
+                <input type="number" step="0.01" class="settings-value" id="config-desc-validacao" value="2.75">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-subtab-content" id="config-sub-usuarios">
+          <!-- Grupo: Usuários — criar conta saiu da tela de login e passou a ser
+               uma ação de quem já está autenticado. -->
+          <div class="settings-group" id="config-usuarios-section">
+            <div class="settings-group-label">USUÁRIOS</div>
+            <div class="settings-list">
+              <div class="settings-row settings-row-wide">
+                <label for="config-novo-usuario-nome">Nome completo</label>
+                <input type="text" class="settings-value" id="config-novo-usuario-nome" autocomplete="off" placeholder="Nome de quem vai usar">
+              </div>
+              <div class="settings-row settings-row-wide">
+                <label for="config-novo-usuario-email">E-mail</label>
+                <input type="email" class="settings-value" id="config-novo-usuario-email" autocomplete="off" placeholder="email@exemplo.com">
+              </div>
+              <div class="settings-row">
+                <label for="config-novo-usuario-senha">Senha</label>
+                <div class="settings-value-inline">
+                  <input type="password" class="settings-value" id="config-novo-usuario-senha" autocomplete="new-password" placeholder="Mín. 6 caracteres">
+                  <span class="icon-btn config-password-toggle" id="config-novo-usuario-senha-toggle" title="Mostrar senha">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </span>
+                </div>
+              </div>
+              <div class="settings-row">
+                <label for="config-novo-usuario-senha2">Confirmar senha</label>
+                <div class="settings-value-inline">
+                  <input type="password" class="settings-value" id="config-novo-usuario-senha2" autocomplete="new-password" placeholder="Repita a senha">
+                  <span class="icon-btn config-password-toggle" id="config-novo-usuario-senha2-toggle" title="Mostrar senha">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </span>
+                </div>
+              </div>
+              <div class="config-cert-action-buttons">
+                <span id="config-novo-usuario-msg" class="config-usuario-msg"></span>
+                <button type="button" id="config-criar-usuario-btn" class="config-icon-btn config-save-btn" title="Criar conta para este usuário">
+                  <svg width="16" height="16" aria-hidden="true" viewBox="0 0 256 256" fill="currentColor"><path d="M256,136a8,8,0,0,1-8,8H232v16a8,8,0,0,1-16,0V144H200a8,8,0,0,1,0-16h16V112a8,8,0,0,1,16,0v16h16A8,8,0,0,1,256,136Zm-57.87,58.85a8,8,0,0,1-12.26,10.3C165.75,181.19,138.09,168,108,168s-57.75,13.19-77.87,37.15a8,8,0,0,1-12.25-10.3c14.94-17.78,33.52-30.41,54.17-37.17a68,68,0,1,1,71.9,0C164.6,164.44,183.18,177.07,198.13,194.85ZM108,152a52,52,0,1,0-52-52A52.06,52.06,0,0,0,108,152Z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-subtab-content" id="config-sub-certificados">
+          <div class="settings-group" id="config-cert-section">
+            <div class="settings-group-label">
+              <span>CERTIFICADOS</span>
+              <div class="config-cert-mode new" id="config-cert-mode">
+                <span class="config-cert-mode-text">NEW</span>
+              </div>
+            </div>
+            <div class="settings-list">
+              <div class="settings-row settings-row-wide">
+                <label for="config-cert-nome">Certificado</label>
+                <div class="config-cert-name-wrap settings-value-inline">
+                  <input type="text" class="settings-value" id="config-cert-nome" autocomplete="off" placeholder="Selecione ou digite o nome do certificado">
+                  <span class="config-cert-caret" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg>
+                  </span>
+                  <div id="config-cert-suggestions" class="config-cert-suggestions is-hidden"></div>
+                </div>
+              </div>
+              <div class="settings-row settings-row-wide">
+                <label for="config-cert-link">Link</label>
+                <input type="text" class="settings-value" id="config-cert-link" placeholder="https://...">
+              </div>
+              <div class="settings-row">
+                <label for="config-cert-tipo">Tipo</label>
+                <select class="settings-value" id="config-cert-tipo">
+                  <option value=""></option>
+                  <option value="CPF">CPF</option>
+                  <option value="CNPJ">CNPJ</option>
+                </select>
+              </div>
+              <div class="settings-row">
+                <label for="config-cert-preco">Preço</label>
+                <input type="text" class="settings-value" id="config-cert-preco" placeholder="0,00">
+              </div>
+              <div class="config-cert-action-buttons">
+                <button type="button" id="config-cert-add-btn" class="config-icon-btn config-save-btn" title="Adicionar certificado">
+                  <svg width="16" height="16" aria-hidden="true" viewBox="0 0 256 256" fill="currentColor"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg>
+                </button>
+                <button type="button" id="config-cert-clear-btn" class="config-icon-btn config-logout-btn" title="Limpar campos">
+                  <svg width="14" height="14" aria-hidden="true" viewBox="0 0 256 256" fill="currentColor"><path d="M225,80.4,183.6,39a24,24,0,0,0-33.94,0L31,157.66a24,24,0,0,0,0,33.94l30.06,30.06A8,8,0,0,0,66.74,224H216a8,8,0,0,0,0-16h-84.7L225,114.34A24,24,0,0,0,225,80.4ZM108.68,208H70.05L42.33,180.28a8,8,0,0,1,0-11.31L96,115.31,148.69,168Zm105-105L160,156.69,107.31,104,161,50.34a8,8,0,0,1,11.32,0l41.38,41.38a8,8,0,0,1,0,11.31Z"/></svg>
+                </button>
+                <button type="button" id="config-cert-delete-btn" class="config-icon-btn config-logout-btn config-cert-delete-btn is-hidden" title="Excluir certificado">
+                  <svg width="14" height="14" aria-hidden="true" viewBox="0 0 256 256" fill="currentColor"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
+        </div>
+
+        <div class="section config-bottom-bar" style="padding: 8px 20px;">
           <div class="config-bottom-actions">
             <button id="salvar-config-btn" class="config-icon-btn" title="Salvar Configurações">
               <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M219.31,72,184,36.69A15.86,15.86,0,0,0,172.69,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V83.31A15.86,15.86,0,0,0,219.31,72ZM168,208H88V152h80Zm40,0H184V152a16,16,0,0,0-16-16H88a16,16,0,0,0-16,16v56H48V48H172.69L208,83.31ZM160,72a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h56A8,8,0,0,1,160,72Z"/></svg>

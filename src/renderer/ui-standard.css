@@ -47,11 +47,16 @@
   --ui-pad-md: 8px;
   --ui-pad-lg: 10px;
 
-  --ui-font-label: 10px;
-  --ui-font-xs: 11px;
-  --ui-font-sm: 12px;
-  --ui-font-md: 13px;
-  --ui-font-lg: 14px;
+  --ui-font-xs: 12px;
+  --ui-font-sm: 13px;
+  --ui-font-md: 14px;
+  --ui-font-lg: 15px;
+
+  /* Fonte padrao unica de todo o app — mude aqui para afetar todas as abas.
+     Nao crie excecoes locais com px fixo; sobrescreva estas variaveis. */
+  --ui-font-label: 11px;
+  --ui-font-field: 13px;
+  --ui-font-table: 13px;
 
   --ui-field-height: 26px;
   --ui-field-height-sm: 24px;
@@ -246,6 +251,22 @@ input[type="time"] {
   min-height: var(--ui-field-height) !important;
   height: var(--ui-field-height) !important;
   line-height: 1 !important;
+  font-weight: 400 !important;
+}
+
+input[type="date"]::-webkit-datetime-edit,
+input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+input[type="date"]::-webkit-datetime-edit-text,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-year-field,
+input[type="time"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit-fields-wrapper,
+input[type="time"]::-webkit-datetime-edit-text,
+input[type="time"]::-webkit-datetime-edit-hour-field,
+input[type="time"]::-webkit-datetime-edit-minute-field,
+input[type="time"]::-webkit-datetime-edit-ampm-field {
+  font-weight: 400 !important;
 }
 
 .input-dark,
@@ -261,7 +282,7 @@ textarea.input-dark {
   border-radius: var(--ui-radius-xs) !important;
   background: var(--ui-surface-2) !important;
   color: var(--ui-text) !important;
-  font-size: var(--ui-font-sm) !important;
+  font-size: var(--ui-font-field) !important;
   line-height: 1.15 !important;
   box-shadow: none !important;
 }
@@ -270,7 +291,7 @@ textarea.input-dark {
 .select-small {
   min-height: var(--ui-field-height-sm) !important;
   height: var(--ui-field-height-sm) !important;
-  font-size: var(--ui-font-xs) !important;
+  font-size: var(--ui-font-field) !important;
 }
 
 .input-dark:focus,
@@ -350,6 +371,12 @@ button,
   font-size: var(--ui-font-sm) !important;
   font-weight: 700 !important;
   letter-spacing: 0 !important;
+  outline: none !important;
+}
+
+button:focus,
+button:focus-visible {
+  outline: none !important;
 }
 
 .btn-primary,
@@ -603,13 +630,8 @@ button,
 }
 
 #consulta .consulta-filters {
-  /* Esta secao usa campos maiores que o resto do app (mais folgados para
-     leitura/clique) — sobrescreve os tokens de densidade global so aqui,
-     via custom properties, para nao afetar as outras abas que os usam. */
   --ui-field-height: 34px;
   --ui-radius-xs: 9px;
-  --ui-font-sm: 13px;
-  --ui-font-label: 10.5px;
   --ui-gap-2: 12px;
 
   display: grid !important;
@@ -630,8 +652,9 @@ button,
 }
 
 #consulta .filter-search-box {
+  --ui-field-height: 34px;
   width: 100% !important;
-  margin-bottom: 2px !important;
+  margin-bottom: var(--ui-gap-3, 7px) !important;
 }
 
 #consulta .filter-search-input-wrap {
@@ -658,7 +681,8 @@ button,
   padding: 0 10px 0 30px !important;
   border: none !important;
   background: transparent !important;
-  font-size: var(--ui-font-sm, 12px) !important;
+  font-size: var(--ui-font-field) !important;
+  font-weight: 400 !important;
   color: var(--ui-text, #e5e5ea) !important;
 }
 
@@ -724,7 +748,7 @@ button,
   width: 100% !important;
   min-width: 0 !important;
   height: var(--ui-field-height) !important;
-  font-size: var(--ui-font-sm) !important;
+  font-size: var(--ui-font-field) !important;
 }
 
 #consulta .relatorio-display {
@@ -783,7 +807,7 @@ button,
   width: 100% !important;
   min-width: 0 !important;
   height: 100% !important;
-  font-weight: 500 !important;
+  font-weight: 400 !important;
 }
 
 #consulta .btn-date-nav {
@@ -838,7 +862,7 @@ button,
 
 #consulta .consulta-table {
   border-collapse: collapse !important;
-  font-size: var(--ui-font-sm) !important;
+  font-size: var(--ui-font-table) !important;
 }
 
 #consulta .consulta-table th,
@@ -849,7 +873,7 @@ button,
 }
 
 #consulta .consulta-table th {
-  font-size: var(--ui-font-xs) !important;
+  font-size: var(--ui-font-table) !important;
   text-align: center !important;
   border-bottom: none !important;
   border-right: none !important;
@@ -1077,6 +1101,81 @@ button,
   flex-direction: column !important;
 }
 
+/* Subabas de Configuracoes (layout vertical: nav a esquerda, conteudo a direita) */
+#configuracoes .config-layout {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  gap: 20px !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+
+#configuracoes .config-subtabs {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  width: 148px !important;
+  flex-shrink: 0 !important;
+  position: sticky !important;
+  top: 0 !important;
+  border-right: 1px solid var(--ui-border, rgba(255, 255, 255, 0.08)) !important;
+  padding-right: 12px !important;
+}
+
+#configuracoes .config-subtab-btn {
+  background: transparent !important;
+  border: none !important;
+  color: var(--ui-text-muted) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  text-align: left !important;
+  padding: 9px 10px !important;
+  font-size: var(--ui-font-field) !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  position: relative !important;
+  border-radius: var(--ui-radius-xs) !important;
+}
+
+#configuracoes .config-subtab-btn:hover {
+  color: var(--ui-text) !important;
+  background: var(--ui-surface-2, rgba(60, 60, 67, 0.6)) !important;
+}
+
+#configuracoes .config-subtab-btn.active {
+  color: var(--ui-text) !important;
+  background: var(--ui-surface-2, rgba(60, 60, 67, 0.6)) !important;
+}
+
+#configuracoes .config-subtab-btn.active::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 4px !important;
+  bottom: 4px !important;
+  right: -13px !important;
+  width: 2px !important;
+  background: var(--ui-blue) !important;
+  border-radius: 2px !important;
+}
+
+#configuracoes .config-subtab-panels {
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+#configuracoes .config-subtab-content {
+  display: none !important;
+  flex-direction: column !important;
+}
+
+#configuracoes .config-subtab-content.active {
+  display: flex !important;
+}
+
 #configuracoes .section {
   border-radius: var(--ui-radius-md) !important;
 }
@@ -1085,7 +1184,7 @@ button,
 #configuracoes .section:not(.config-bottom-bar) .select-dark {
   min-height: var(--ui-field-height) !important;
   height: var(--ui-field-height) !important;
-  font-size: var(--ui-font-sm) !important;
+  font-size: var(--ui-font-field) !important;
 }
 
 #configuracoes .section:not(.config-bottom-bar) .form-grid-2,
@@ -1461,6 +1560,7 @@ button,
 
 #indicadores .indicadores-controls {
   --indicadores-control-height: 28px;
+  --ui-field-height: 34px;
   display: flex !important;
   flex-wrap: wrap !important;
   gap: var(--ui-gap-3) !important;
@@ -1495,7 +1595,7 @@ button,
   border-radius: var(--ui-radius-sm) !important;
   padding: var(--ui-pad-xs) var(--ui-pad-sm) !important;
   color: var(--ui-text) !important;
-  font-size: var(--ui-font-sm) !important;
+  font-size: var(--ui-font-field) !important;
   height: var(--indicadores-control-height) !important;
   box-sizing: border-box !important;
   transition: all 0.2s ease !important;
@@ -1507,25 +1607,28 @@ button,
   background: var(--ui-surface-3) !important;
 }
 
-/* Seletor Mensal ("Slider") Elegante */
+/* Seletor Mensal — mesmo estilo e altura do seletor de data da aba Consulta
+   (#consulta .date-selector-wrapper / .btn-date-nav). */
 #indicadores .month-selector-wrapper {
   display: flex !important;
   align-items: center !important;
-  background: var(--ui-surface-2) !important;
-  border-radius: var(--ui-radius-sm) !important;
+  background: var(--ui-surface-2, rgba(60, 60, 67, 0.6)) !important;
+  border-radius: var(--ui-radius-xs) !important;
   border: 1px solid transparent !important;
   padding: 0 !important;
-  height: var(--indicadores-control-height) !important;
   box-sizing: border-box !important;
   transition: all 0.2s ease !important;
   overflow: hidden !important;
+  max-width: none !important;
   width: 100% !important;
   min-width: 0 !important;
+  height: var(--ui-field-height) !important;
 }
 
 #indicadores .month-selector-wrapper:focus-within {
   box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.4) !important;
-  background: var(--ui-surface-3) !important;
+  background: var(--ui-surface-3, rgba(70, 70, 77, 0.85)) !important;
+  border-color: transparent !important;
 }
 
 #indicadores .month-selector-wrapper .input-icon-embedded {
@@ -1542,13 +1645,14 @@ button,
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
-  padding: 0 22px 0 4px !important;
+  padding: 0 30px 0 6px !important;
   text-align: center !important;
+  margin: 0 !important;
+  max-width: none !important;
   width: 100% !important;
   min-width: 0 !important;
   height: 100% !important;
-  margin: 0 !important;
-  max-width: none !important;
+  font-weight: 400 !important;
 }
 
 #indicadores .month-selector-wrapper .input-dark::-webkit-calendar-picker-indicator,
@@ -1561,9 +1665,9 @@ button,
 #indicadores .btn-month-nav {
   background: transparent !important;
   border: none !important;
-  color: var(--ui-text-muted) !important;
-  width: 24px !important;
-  min-width: 24px !important;
+  color: var(--ui-text-muted, #a9a9b2) !important;
+  width: 28px !important;
+  min-width: 28px !important;
   height: 100% !important;
   display: flex !important;
   align-items: center !important;
@@ -1575,20 +1679,22 @@ button,
 }
 
 #indicadores .btn-month-nav:first-child {
-  border-radius: var(--ui-radius-sm) 0 0 var(--ui-radius-sm) !important;
+  border-radius: var(--ui-radius-xs) 0 0 var(--ui-radius-xs) !important;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.07) !important;
 }
 
 #indicadores .btn-month-nav:last-child {
-  border-radius: 0 var(--ui-radius-sm) var(--ui-radius-sm) 0 !important;
+  border-radius: 0 var(--ui-radius-xs) var(--ui-radius-xs) 0 !important;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.07) !important;
 }
 
 #indicadores .btn-month-nav:hover {
-  background: var(--ui-hover) !important;
-  color: var(--ui-text) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
 }
 
 #indicadores .btn-month-nav:active {
-  transform: scale(0.9) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
 }
 
 #indicadores .btn-month-nav:disabled,
